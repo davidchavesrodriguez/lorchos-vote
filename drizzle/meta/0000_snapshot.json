@@ -1,0 +1,473 @@
+{
+  "id": "21c77381-537d-4314-9235-b7cdcb99b87a",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.ballot_choices": {
+      "name": "ballot_choices",
+      "schema": "",
+      "columns": {
+        "ballot_id": {
+          "name": "ballot_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "election_id": {
+          "name": "election_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "candidate_participant_id": {
+          "name": "candidate_participant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "ballot_choices_ballot_election_fk": {
+          "name": "ballot_choices_ballot_election_fk",
+          "tableFrom": "ballot_choices",
+          "tableTo": "ballots",
+          "columnsFrom": [
+            "ballot_id",
+            "election_id"
+          ],
+          "columnsTo": [
+            "id",
+            "election_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "ballot_choices_candidate_election_fk": {
+          "name": "ballot_choices_candidate_election_fk",
+          "tableFrom": "ballot_choices",
+          "tableTo": "election_participants",
+          "columnsFrom": [
+            "candidate_participant_id",
+            "election_id"
+          ],
+          "columnsTo": [
+            "id",
+            "election_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "ballot_choices_ballot_candidate_unique": {
+          "name": "ballot_choices_ballot_candidate_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "ballot_id",
+            "candidate_participant_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.ballots": {
+      "name": "ballots",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "election_id": {
+          "name": "election_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "ballots_election_id_elections_id_fk": {
+          "name": "ballots_election_id_elections_id_fk",
+          "tableFrom": "ballots",
+          "tableTo": "elections",
+          "columnsFrom": [
+            "election_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "ballots_id_election_id_unique": {
+          "name": "ballots_id_election_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "election_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.election_participants": {
+      "name": "election_participants",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "election_id": {
+          "name": "election_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "display_name": {
+          "name": "display_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "can_vote": {
+          "name": "can_vote",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "can_be_candidate": {
+          "name": "can_be_candidate",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "has_voted": {
+          "name": "has_voted",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "election_participants_election_id_elections_id_fk": {
+          "name": "election_participants_election_id_elections_id_fk",
+          "tableFrom": "election_participants",
+          "tableTo": "elections",
+          "columnsFrom": [
+            "election_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "election_participants_election_display_name_unique": {
+          "name": "election_participants_election_display_name_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "election_id",
+            "display_name"
+          ]
+        },
+        "election_participants_id_election_id_unique": {
+          "name": "election_participants_id_election_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "election_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "election_participants_display_name_not_empty": {
+          "name": "election_participants_display_name_not_empty",
+          "value": "char_length(btrim(\"election_participants\".\"display_name\")) > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.elections": {
+      "name": "elections",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "group_label": {
+          "name": "group_label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "election_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "number_of_winners": {
+          "name": "number_of_winners",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "min_selections": {
+          "name": "min_selections",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "max_selections": {
+          "name": "max_selections",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "allow_self_vote": {
+          "name": "allow_self_vote",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "minimum_turnout": {
+          "name": "minimum_turnout",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "opens_at": {
+          "name": "opens_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "closes_at": {
+          "name": "closes_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "opened_at": {
+          "name": "opened_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "closed_at": {
+          "name": "closed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "elections_title_not_empty": {
+          "name": "elections_title_not_empty",
+          "value": "char_length(btrim(\"elections\".\"title\")) > 0"
+        },
+        "elections_group_label_not_empty": {
+          "name": "elections_group_label_not_empty",
+          "value": "char_length(btrim(\"elections\".\"group_label\")) > 0"
+        },
+        "elections_number_of_winners_positive": {
+          "name": "elections_number_of_winners_positive",
+          "value": "\"elections\".\"number_of_winners\" > 0"
+        },
+        "elections_min_selections_positive": {
+          "name": "elections_min_selections_positive",
+          "value": "\"elections\".\"min_selections\" > 0"
+        },
+        "elections_max_selections_not_below_min": {
+          "name": "elections_max_selections_not_below_min",
+          "value": "\"elections\".\"max_selections\" >= \"elections\".\"min_selections\""
+        },
+        "elections_minimum_turnout_positive": {
+          "name": "elections_minimum_turnout_positive",
+          "value": "\"elections\".\"minimum_turnout\" IS NULL OR \"elections\".\"minimum_turnout\" > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.voting_credentials": {
+      "name": "voting_credentials",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "participant_id": {
+          "name": "participant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "token_hash": {
+          "name": "token_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "voting_credential_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "revoked_at": {
+          "name": "revoked_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "voting_credentials_one_active_per_participant": {
+          "name": "voting_credentials_one_active_per_participant",
+          "columns": [
+            {
+              "expression": "participant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"voting_credentials\".\"status\" = 'ACTIVE'",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "voting_credentials_participant_id_election_participants_id_fk": {
+          "name": "voting_credentials_participant_id_election_participants_id_fk",
+          "tableFrom": "voting_credentials",
+          "tableTo": "election_participants",
+          "columnsFrom": [
+            "participant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "voting_credentials_token_hash_unique": {
+          "name": "voting_credentials_token_hash_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "token_hash"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "voting_credentials_token_hash_not_empty": {
+          "name": "voting_credentials_token_hash_not_empty",
+          "value": "char_length(\"voting_credentials\".\"token_hash\") > 0"
+        },
+        "voting_credentials_revoked_at_matches_status": {
+          "name": "voting_credentials_revoked_at_matches_status",
+          "value": "(\"voting_credentials\".\"status\" = 'REVOKED' AND \"voting_credentials\".\"revoked_at\" IS NOT NULL) OR (\"voting_credentials\".\"status\" IN ('ACTIVE', 'USED') AND \"voting_credentials\".\"revoked_at\" IS NULL)"
+        }
+      },
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.election_status": {
+      "name": "election_status",
+      "schema": "public",
+      "values": [
+        "DRAFT",
+        "READY",
+        "OPEN",
+        "CLOSED"
+      ]
+    },
+    "public.voting_credential_status": {
+      "name": "voting_credential_status",
+      "schema": "public",
+      "values": [
+        "ACTIVE",
+        "USED",
+        "REVOKED"
+      ]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}
