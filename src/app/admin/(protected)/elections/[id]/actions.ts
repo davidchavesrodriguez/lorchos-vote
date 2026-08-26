@@ -1,0 +1,359 @@
+'use server';
+
+import { and, eq } from 'drizzle-orm';
+import { revalidatePath } from 'next/cache';
+
+import { db } from '@/db';
+import { electionParticipants, elections } from '@/db/schema';
+import { requireAdminSession } from '@/lib/admin-session';
+
+import type {
+  ParticipantImportState,
+  ParticipantMutationState,
+} from './participant-form-state';
+
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const DRAFT_REQUIRED_ERROR =
+  'O censo só se pode modificar mentres a votación está en borrador.';
+const ELECTION_NOT_FOUND_ERROR = 'A votación xa non existe.';
+const PARTICIPANT_NOT_FOUND_ERROR = 'A persoa xa non existe neste censo.';
+const GENERIC_ERROR =
+  'Non foi posible completar a operación. Téntao de novo dentro duns intres.';
+
+function readString(formData: FormData, field: string): string {
+  const value = formData.get(field);
+
+  return typeof value === 'string' ? value : '';
+}
+
+function readChecked(formData: FormData, field: string): boolean {
+  return formData.get(field) === 'true';
+}
+
+function normalizeName(name: string): string {
+  return name.trim().replace(/\s+/g, ' ').toLocaleLowerCase('gl');
+}
+
+function parseNames(value: string): string[] {
+  return value
+    .split(/[\r\n,]/)
+    .map((name) => name.trim())
+    .filter(Boolean);
+}
+
+function findRepeatedNames(names: string[]): string[] {
+  const firstNameByNormalizedName = new Map<string, string>();
+  const repeatedNames = new Set<string>();
+
+  for (const name of names) {
+    const normalizedName = normalizeName(name);
+    const firstName = firstNameByNormalizedName.get(normalizedName);
+
+    if (firstName) {
+      repeatedNames.add(firstName);
+    } else {
+      firstNameByNormalizedName.set(normalizedName, name);
+    }
+  }
+
+  return [...repeatedNames];
+}
+
+function logUnexpected(operation: string, error: unknown) {
+  const errorName = error instanceof Error ? error.name : 'UnknownError';
+  console.error(`${operation} failed (${errorName})`);
+}
+
+function mutationError(result: 'missing' | 'notDraft') {
+  return result === 'missing'
+    ? ELECTION_NOT_FOUND_ERROR
+    : DRAFT_REQUIRED_ERROR;
+}
+
+export async function importParticipants(
+  _previousState: ParticipantImportState,
+  formData: FormData,
+): Promise<ParticipantImportState> {
+  await requireAdminSession();
+
+  const electionId = readString(formData, 'electionId');
+  const values = {
+    names: readString(formData, 'names'),
+    canVote: readChecked(formData, 'canVote'),
+    canBeCandidate: readChecked(formData, 'canBeCandidate'),
+  };
+  const names = parseNames(values.names);
+
+  if (!UUID_PATTERN.test(electionId)) {
+    return { values, formError: ELECTION_NOT_FOUND_ERROR };
+  }
+
+  if (names.length === 0) {
+    return {
+      values,
+      namesError: 'Introduce polo menos un nome.',
+    };
+  }
+
+  const repeatedNames = findRepeatedNames(names);
+
+  if (repeatedNames.length > 0) {
+    return {
+      values,
+      namesError: `Hai nomes repetidos na lista: ${repeatedNames.join(', ')}.`,
+    };
+  }
+
+  try {
+    const result = await db.transaction(async (tx) => {
+      const [election] = await tx
+        .select({ status: elections.status })
+        .from(elections)
+        .where(eq(elections.id, electionId))
+        .for('update');
+
+      if (!election) {
+        return { type: 'missing' } as const;
+      }
+
+      if (election.status !== 'DRAFT') {
+        return { type: 'notDraft' } as const;
+      }
+
+      const existingParticipants = await tx
+        .select({ displayName: electionParticipants.displayName })
+        .from(electionParticipants)
+        .where(eq(electionParticipants.electionId, electionId));
+      const existingNames = new Set(
+        existingParticipants.map(({ displayName }) =>
+          normalizeName(displayName),
+        ),
+      );
+      const conflictingNames = names.filter((name) =>
+        existingNames.has(normalizeName(name)),
+      );
+
+      if (conflictingNames.length > 0) {
+        return { type: 'conflict', names: conflictingNames } as const;
+      }
+
+      await tx.insert(electionParticipants).values(
+        names.map((displayName) => ({
+          electionId,
+          displayName,
+          canVote: values.canVote,
+          canBeCandidate: values.canBeCandidate,
+        })),
+      );
+
+      return { type: 'success' } as const;
+    });
+
+    if (result.type === 'missing' || result.type === 'notDraft') {
+      return { values, formError: mutationError(result.type) };
+    }
+
+    if (result.type === 'conflict') {
+      return {
+        values,
+        namesError: `Xa hai persoas no censo con estes nomes: ${result.names.join(', ')}.`,
+      };
+    }
+
+    revalidatePath(`/admin/elections/${electionId}`);
+
+    return {
+      values: {
+        names: '',
+        canVote: true,
+        canBeCandidate: true,
+      },
+      successMessage: `${names.length} ${names.length === 1 ? 'persoa engadida' : 'persoas engadidas'}.`,
+    };
+  } catch (error) {
+    logUnexpected('Participant import', error);
+    return { values, formError: GENERIC_ERROR };
+  }
+}
+
+export async function updateParticipantRoles(
+  _previousState: ParticipantMutationState,
+  formData: FormData,
+): Promise<ParticipantMutationState> {
+  await requireAdminSession();
+
+  const electionId = readString(formData, 'electionId');
+  const participantId = readString(formData, 'participantId');
+
+  if (!UUID_PATTERN.test(electionId) || !UUID_PATTERN.test(participantId)) {
+    return { formError: PARTICIPANT_NOT_FOUND_ERROR };
+  }
+
+  try {
+    const result = await db.transaction(async (tx) => {
+      const [election] = await tx
+        .select({ status: elections.status })
+        .from(elections)
+        .where(eq(elections.id, electionId))
+        .for('update');
+
+      if (!election) {
+        return 'missing' as const;
+      }
+
+      if (election.status !== 'DRAFT') {
+        return 'notDraft' as const;
+      }
+
+      const [participant] = await tx
+        .select({ id: electionParticipants.id })
+        .from(electionParticipants)
+        .where(
+          and(
+            eq(electionParticipants.id, participantId),
+            eq(electionParticipants.electionId, electionId),
+          ),
+        );
+
+      if (!participant) {
+        return 'participantMissing' as const;
+      }
+
+      await tx
+        .update(electionParticipants)
+        .set({
+          canVote: readChecked(formData, 'canVote'),
+          canBeCandidate: readChecked(formData, 'canBeCandidate'),
+        })
+        .where(
+          and(
+            eq(electionParticipants.id, participantId),
+            eq(electionParticipants.electionId, electionId),
+          ),
+        );
+
+      return 'success' as const;
+    });
+
+    if (result === 'missing' || result === 'notDraft') {
+      return { formError: mutationError(result) };
+    }
+
+    if (result === 'participantMissing') {
+      return { formError: PARTICIPANT_NOT_FOUND_ERROR };
+    }
+
+    revalidatePath(`/admin/elections/${electionId}`);
+    return { successMessage: 'Cambios gardados.' };
+  } catch (error) {
+    logUnexpected('Participant role update', error);
+    return { formError: GENERIC_ERROR };
+  }
+}
+
+export async function markAllParticipantsEligible(
+  _previousState: ParticipantMutationState,
+  formData: FormData,
+): Promise<ParticipantMutationState> {
+  await requireAdminSession();
+
+  const electionId = readString(formData, 'electionId');
+
+  if (!UUID_PATTERN.test(electionId)) {
+    return { formError: ELECTION_NOT_FOUND_ERROR };
+  }
+
+  try {
+    const result = await db.transaction(async (tx) => {
+      const [election] = await tx
+        .select({ status: elections.status })
+        .from(elections)
+        .where(eq(elections.id, electionId))
+        .for('update');
+
+      if (!election) {
+        return 'missing' as const;
+      }
+
+      if (election.status !== 'DRAFT') {
+        return 'notDraft' as const;
+      }
+
+      await tx
+        .update(electionParticipants)
+        .set({ canVote: true, canBeCandidate: true })
+        .where(eq(electionParticipants.electionId, electionId));
+
+      return 'success' as const;
+    });
+
+    if (result !== 'success') {
+      return { formError: mutationError(result) };
+    }
+
+    revalidatePath(`/admin/elections/${electionId}`);
+    return { successMessage: 'Todo o censo pode votar e ser candidato.' };
+  } catch (error) {
+    logUnexpected('Bulk participant role update', error);
+    return { formError: GENERIC_ERROR };
+  }
+}
+
+export async function deleteParticipant(
+  _previousState: ParticipantMutationState,
+  formData: FormData,
+): Promise<ParticipantMutationState> {
+  await requireAdminSession();
+
+  const electionId = readString(formData, 'electionId');
+  const participantId = readString(formData, 'participantId');
+
+  if (!UUID_PATTERN.test(electionId) || !UUID_PATTERN.test(participantId)) {
+    return { formError: PARTICIPANT_NOT_FOUND_ERROR };
+  }
+
+  try {
+    const result = await db.transaction(async (tx) => {
+      const [election] = await tx
+        .select({ status: elections.status })
+        .from(elections)
+        .where(eq(elections.id, electionId))
+        .for('update');
+
+      if (!election) {
+        return 'missing' as const;
+      }
+
+      if (election.status !== 'DRAFT') {
+        return 'notDraft' as const;
+      }
+
+      const [deletedParticipant] = await tx
+        .delete(electionParticipants)
+        .where(
+          and(
+            eq(electionParticipants.id, participantId),
+            eq(electionParticipants.electionId, electionId),
+          ),
+        )
+        .returning({ id: electionParticipants.id });
+
+      return deletedParticipant ? ('success' as const) : ('participantMissing' as const);
+    });
+
+    if (result === 'missing' || result === 'notDraft') {
+      return { formError: mutationError(result) };
+    }
+
+    if (result === 'participantMissing') {
+      return { formError: PARTICIPANT_NOT_FOUND_ERROR };
+    }
+
+    revalidatePath(`/admin/elections/${electionId}`);
+    return { successMessage: 'Persoa eliminada.' };
+  } catch (error) {
+    logUnexpected('Participant deletion', error);
+    return { formError: GENERIC_ERROR };
+  }
+}

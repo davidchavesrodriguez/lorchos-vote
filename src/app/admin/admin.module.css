@@ -137,7 +137,8 @@
   font-weight: 700;
 }
 
-.field input {
+.field input,
+.field textarea {
   width: 100%;
   min-height: 3rem;
   padding: var(--space-2) var(--space-3);
@@ -146,7 +147,12 @@
   background: var(--color-brand-white);
 }
 
-.field input[aria-invalid='true'] {
+.field textarea {
+  resize: vertical;
+}
+
+.field input[aria-invalid='true'],
+.field textarea[aria-invalid='true'] {
   border-color: var(--color-brand-dark-blue);
   outline: 0.125rem solid var(--color-brand-orange);
   outline-offset: 0.125rem;
@@ -209,6 +215,197 @@
 .details dd {
   margin: 0;
   font-weight: 700;
+}
+
+.census {
+  margin-block-start: var(--space-12);
+  padding-block-start: var(--space-8);
+  border-block-start: var(--space-1) solid var(--color-brand-cyan);
+}
+
+.censusHeading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.censusHeading h2 {
+  font-family: var(--font-family-editorial);
+  font-size: clamp(2rem, 8vw, 3rem);
+  font-weight: 600;
+}
+
+.censusHeading p {
+  color: var(--color-neutral-700);
+  font-weight: 700;
+}
+
+.participantImport {
+  margin-block-start: var(--space-8);
+  border-block: 0.125rem solid var(--color-neutral-100);
+}
+
+.participantImport summary {
+  padding-block: var(--space-4);
+  font-size: 1.25rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.participantImportContent {
+  padding-block-end: var(--space-6);
+}
+
+.censusForm {
+  display: grid;
+  gap: var(--space-6);
+  margin-block-start: var(--space-4);
+}
+
+.roleFields {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.roleFields legend {
+  margin-block-end: var(--space-2);
+  font-weight: 700;
+}
+
+.roleFields label,
+.participantRoleForm label {
+  display: flex;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: var(--space-3);
+  font-weight: 600;
+}
+
+.roleFields input,
+.participantRoleForm input {
+  width: 1.5rem;
+  height: 1.5rem;
+  margin: 0;
+}
+
+.successMessage {
+  padding: var(--space-3) var(--space-4);
+  border-inline-start: var(--space-1) solid var(--color-brand-cyan);
+  background: var(--color-neutral-100);
+  font-weight: 600;
+}
+
+.censusEmptyState {
+  margin-block-start: var(--space-8);
+  color: var(--color-neutral-700);
+}
+
+.markAllAction {
+  margin-block-start: var(--space-6);
+}
+
+.markAllAction .secondaryButton {
+  width: 100%;
+  margin-block-start: 0;
+  padding: var(--space-2) var(--space-4);
+}
+
+.participantList {
+  margin: var(--space-8) 0 0;
+  padding: 0;
+  border-block-start: 0.125rem solid var(--color-neutral-100);
+  list-style: none;
+}
+
+.participantItem {
+  display: grid;
+  gap: var(--space-3);
+  padding-block: var(--space-4);
+  border-block-end: 0.125rem solid var(--color-neutral-100);
+}
+
+.participantItem h3 {
+  overflow-wrap: anywhere;
+  font-size: 1.125rem;
+}
+
+.participantControls,
+.participantRoleForm,
+.participantRoleFields,
+.participantRoles {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.participantControls {
+  min-width: 0;
+}
+
+.participantRoles {
+  margin-block-start: var(--space-4);
+}
+
+.participantRoleForm {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.participantRoleFields {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.participantActionButtons {
+  display: flex;
+  flex-wrap: wrap;
+  grid-column: 1 / -1;
+  gap: var(--space-3);
+}
+
+.compactButton,
+.deleteButton {
+  flex: 1;
+  min-height: 3rem;
+  padding-inline: var(--space-4);
+  border: 0.125rem solid var(--color-brand-dark-blue);
+  border-radius: var(--radius-small);
+  background: transparent;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.compactButton:hover:not(:disabled) {
+  color: var(--color-brand-white);
+  background: var(--color-brand-dark-blue);
+}
+
+.deleteButton {
+  border-color: var(--color-neutral-700);
+}
+
+.deleteButton:hover:not(:disabled) {
+  color: var(--color-brand-white);
+  background: var(--color-neutral-700);
+}
+
+.compactButton:disabled,
+.deleteButton:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.inlineError,
+.inlineSuccess {
+  padding-inline-start: var(--space-3);
+  border-inline-start: var(--space-1) solid var(--color-brand-orange);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.inlineSuccess {
+  border-inline-start-color: var(--color-brand-cyan);
 }
 
 .primaryButton,
@@ -308,5 +505,47 @@
   .details div {
     grid-template-columns: minmax(10rem, 1fr) 2fr;
     align-items: baseline;
+  }
+
+  .roleFields,
+  .participantRoles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .participantItem {
+    grid-template-columns: minmax(8rem, 0.8fr) minmax(0, 2.2fr);
+    align-items: center;
+    gap: var(--space-4);
+  }
+
+  .participantRoleForm {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-4);
+  }
+
+  .participantRoleFields {
+    display: flex;
+    flex: 1 1 18rem;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: var(--space-4);
+  }
+
+  .participantActionButtons {
+    flex: 0 0 auto;
+    grid-column: auto;
+    justify-content: flex-end;
+    margin-inline-start: auto;
+  }
+
+  .participantActionButtons .compactButton,
+  .participantActionButtons .deleteButton {
+    flex: 0 1 auto;
+  }
+
+  .markAllAction .secondaryButton {
+    width: auto;
   }
 }
