@@ -7,6 +7,11 @@ import { db } from '@/db';
 import { electionParticipants, elections } from '@/db/schema';
 import { requireAdminSession } from '@/lib/admin-session';
 import { transitionDraftElectionToReady } from '@/lib/election-preparation';
+import {
+  generateMissingVotingCredentials,
+  regenerateVotingCredential,
+  type GeneratedVotingLink,
+} from '@/lib/voting-credentials';
 
 import type {
   ParticipantImportState,
@@ -25,9 +30,21 @@ const PREPARATION_DRAFT_REQUIRED_ERROR =
   'A votación só se pode preparar mentres está en borrador.';
 const NOT_READY_ERROR =
   'A votación non se pode preparar porque o censo ou as regras xa non cumpren todos os requisitos.';
+const VOTING_LINKS_READY_REQUIRED_ERROR =
+  'As ligazóns de voto só se poden xerar para unha votación preparada.';
+const VOTER_NOT_FOUND_ERROR =
+  'A persoa non existe nesta votación ou non ten dereito a voto.';
+const VOTER_HAS_VOTED_ERROR =
+  'Non se pode xerar outra ligazón porque esta persoa xa votou.';
 
 export type PrepareElectionState = {
   formError?: string;
+};
+
+export type VotingLinkActionResult = {
+  generatedLinks?: GeneratedVotingLink[];
+  formError?: string;
+  successMessage?: string;
 };
 
 function readString(formData: FormData, field: string): string {
@@ -403,6 +420,103 @@ export async function prepareElection(
     return {};
   } catch (error) {
     logUnexpected('Election preparation', error);
+    return { formError: GENERIC_ERROR };
+  }
+}
+
+export async function generateVotingLinks(
+  electionId: string,
+): Promise<VotingLinkActionResult> {
+  await requireAdminSession();
+
+  if (!UUID_PATTERN.test(electionId)) {
+    return { formError: ELECTION_NOT_FOUND_ERROR };
+  }
+
+  try {
+    const result = await generateMissingVotingCredentials(electionId);
+
+    if (result.type === 'missingElection') {
+      return { formError: ELECTION_NOT_FOUND_ERROR };
+    }
+
+    if (result.type === 'notReady') {
+      return { formError: VOTING_LINKS_READY_REQUIRED_ERROR };
+    }
+
+    if (result.type === 'noEligibleVoters') {
+      return {
+        successMessage:
+          'Non hai persoas pendentes de votar para as que xerar ligazóns.',
+      };
+    }
+
+    if (result.type === 'allHaveActiveCredential') {
+      return {
+        successMessage:
+          'Todas as persoas pendentes de votar xa teñen unha ligazón activa.',
+      };
+    }
+
+    revalidatePath(`/admin/elections/${electionId}`);
+
+    return {
+      generatedLinks: result.generatedLinks,
+      successMessage: `${result.generatedLinks.length} ${result.generatedLinks.length === 1 ? 'ligazón xerada' : 'ligazóns xeradas'}.`,
+    };
+  } catch (error) {
+    logUnexpected('Bulk voting credential generation', error);
+    return { formError: GENERIC_ERROR };
+  }
+}
+
+export async function regenerateVotingLink(
+  electionId: string,
+  participantId: string,
+): Promise<VotingLinkActionResult> {
+  await requireAdminSession();
+
+  if (!UUID_PATTERN.test(electionId)) {
+    return { formError: ELECTION_NOT_FOUND_ERROR };
+  }
+
+  if (!UUID_PATTERN.test(participantId)) {
+    return { formError: VOTER_NOT_FOUND_ERROR };
+  }
+
+  try {
+    const result = await regenerateVotingCredential(
+      electionId,
+      participantId,
+    );
+
+    if (result.type === 'missingElection') {
+      return { formError: ELECTION_NOT_FOUND_ERROR };
+    }
+
+    if (result.type === 'notReady') {
+      return { formError: VOTING_LINKS_READY_REQUIRED_ERROR };
+    }
+
+    if (
+      result.type === 'missingParticipant' ||
+      result.type === 'cannotVote'
+    ) {
+      return { formError: VOTER_NOT_FOUND_ERROR };
+    }
+
+    if (result.type === 'hasVoted') {
+      return { formError: VOTER_HAS_VOTED_ERROR };
+    }
+
+    revalidatePath(`/admin/elections/${electionId}`);
+
+    return {
+      generatedLinks: [result.generatedLink],
+      successMessage: 'Nova ligazón xerada.',
+    };
+  } catch (error) {
+    logUnexpected('Individual voting credential generation', error);
     return { formError: GENERIC_ERROR };
   }
 }

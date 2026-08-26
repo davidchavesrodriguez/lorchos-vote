@@ -1,10 +1,14 @@
-import { asc, eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import { db } from '@/db';
-import { electionParticipants, elections } from '@/db/schema';
+import {
+  electionParticipants,
+  elections,
+  votingCredentials,
+} from '@/db/schema';
 import { calculateElectionReadiness } from '@/lib/election-readiness';
 import { getElectionStatusLabel } from '@/lib/election-status';
 import styles from '../../../admin.module.css';
@@ -14,6 +18,7 @@ import {
 } from './participant-controls';
 import { ParticipantImportForm } from './participant-import-form';
 import { PrepareElectionForm } from './prepare-election-form';
+import { VotingLinksPanel } from './voting-links-panel';
 
 export const metadata: Metadata = {
   title: 'Detalle da votación | Administración',
@@ -65,6 +70,31 @@ export default async function ElectionDetailPage({
     .where(eq(electionParticipants.electionId, id))
     .orderBy(asc(electionParticipants.displayName));
   const isDraft = election.status === 'DRAFT';
+  const isReady = election.status === 'READY';
+  const votingParticipants = isReady
+    ? await db
+        .select({
+          id: electionParticipants.id,
+          displayName: electionParticipants.displayName,
+          hasVoted: electionParticipants.hasVoted,
+          activeCredentialId: votingCredentials.id,
+        })
+        .from(electionParticipants)
+        .leftJoin(
+          votingCredentials,
+          and(
+            eq(votingCredentials.participantId, electionParticipants.id),
+            eq(votingCredentials.status, 'ACTIVE'),
+          ),
+        )
+        .where(
+          and(
+            eq(electionParticipants.electionId, id),
+            eq(electionParticipants.canVote, true),
+          ),
+        )
+        .orderBy(asc(electionParticipants.displayName))
+    : [];
   const allParticipantsEligible = participants.every(
     (participant) => participant.canVote && participant.canBeCandidate,
   );
@@ -152,9 +182,21 @@ export default async function ElectionDetailPage({
 
       {election.status === 'READY' ? (
         <p className={styles.readyNotice}>
-          A configuración e o censo están pechados. O seguinte paso será xerar
-          as ligazóns de voto.
+          A configuración e o censo están pechados. Xa podes xerar as ligazóns
+          individuais para as persoas con dereito a voto.
         </p>
+      ) : null}
+
+      {isReady ? (
+        <VotingLinksPanel
+          electionId={id}
+          voters={votingParticipants.map((participant) => ({
+            id: participant.id,
+            displayName: participant.displayName,
+            hasVoted: participant.hasVoted,
+            hasActiveCredential: participant.activeCredentialId !== null,
+          }))}
+        />
       ) : null}
 
       <section className={styles.census} aria-labelledby='census-title'>

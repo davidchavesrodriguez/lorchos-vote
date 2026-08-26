@@ -225,6 +225,122 @@
   font-weight: 600;
 }
 
+.votingLinks {
+  margin-block-start: var(--space-12);
+  padding-block-start: var(--space-8);
+  border-block-start: var(--space-1) solid var(--color-brand-orange);
+}
+
+.votingLinksHeading {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.votingLinksHeading h2 {
+  font-family: var(--font-family-editorial);
+  font-size: clamp(2rem, 8vw, 3rem);
+  font-weight: 600;
+}
+
+.votingLinksHeading p {
+  color: var(--color-neutral-700);
+  font-weight: 700;
+}
+
+.votingLinksBulkAction {
+  margin-block-start: var(--space-6);
+}
+
+.votingLinks > .inlineError,
+.votingLinks > .inlineSuccess {
+  margin-block-start: var(--space-4);
+}
+
+.revealedVotingLinks {
+  margin-block-start: var(--space-8);
+  padding: var(--space-6) var(--space-4);
+  border-inline-start: var(--space-1) solid var(--color-brand-cyan);
+  background: var(--color-neutral-100);
+}
+
+.revealedVotingLinks h3 {
+  font-size: 1.25rem;
+}
+
+.secretWarning {
+  max-width: 42rem;
+  margin-block-start: var(--space-3);
+  font-weight: 700;
+}
+
+.revealedVotingLinksList,
+.votingLinkVoterList {
+  margin: var(--space-6) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.revealedVotingLinksList li,
+.votingLinkVoterList li {
+  display: grid;
+  gap: var(--space-3);
+  padding-block: var(--space-4);
+  border-block-start: 0.125rem solid var(--color-brand-white);
+}
+
+.revealedVotingLinksList li:last-child,
+.votingLinkVoterList li:last-child {
+  border-block-end: 0.125rem solid var(--color-brand-white);
+}
+
+.votingUrl {
+  display: block;
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  overflow-wrap: anywhere;
+  border: 0.125rem solid var(--color-neutral-700);
+  border-radius: var(--radius-small);
+  background: var(--color-brand-white);
+  font-family: var(--font-family-interface);
+  user-select: text;
+}
+
+.revealedVotingLinks .inlineError,
+.revealedVotingLinks .inlineSuccess {
+  margin-block-start: var(--space-4);
+}
+
+.votingLinkVoterList {
+  border-block-end: 0.125rem solid var(--color-neutral-100);
+}
+
+.votingLinkVoterList li {
+  border-block-start-color: var(--color-neutral-100);
+}
+
+.votingLinkVoterList li:last-child {
+  border-block-end: 0;
+}
+
+.votingLinkVoterList h3 {
+  overflow-wrap: anywhere;
+  font-size: 1.125rem;
+}
+
+.votingLinkVoterList p {
+  color: var(--color-neutral-700);
+  font-weight: 600;
+}
+
+.votingLinkVoterList .compactButton,
+.revealedVotingLinksList .compactButton {
+  width: 100%;
+}
+
+.votingLinkUnavailable {
+  max-width: 30rem;
+}
+
 .census {
   margin-block-start: var(--space-12);
   padding-block-start: var(--space-8);
@@ -610,6 +726,26 @@
   }
 
   .markAllAction .secondaryButton {
+    width: auto;
+  }
+
+  .votingLinksHeading {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+  }
+
+  .revealedVotingLinksList li {
+    grid-template-columns: minmax(8rem, 0.6fr) minmax(0, 2fr) auto;
+    align-items: center;
+  }
+
+  .votingLinkVoterList li {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+
+  .votingLinkVoterList .compactButton,
+  .revealedVotingLinksList .compactButton {
     width: auto;
   }
 }
