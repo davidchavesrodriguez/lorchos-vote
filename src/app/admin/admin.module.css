@@ -1,0 +1,127 @@
+.page {
+  display: grid;
+  min-height: 100svh;
+  align-items: center;
+  padding: var(--space-8) var(--space-4);
+  border-block-start: var(--space-2) solid var(--color-brand-cyan);
+  background: var(--color-brand-white);
+}
+
+.content {
+  width: 100%;
+  max-width: 38rem;
+  margin-inline: auto;
+  padding-inline-start: var(--space-4);
+  border-inline-start: var(--space-1) solid var(--color-brand-orange);
+}
+
+.identity {
+  margin-block-end: var(--space-3);
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.title {
+  max-width: 14ch;
+  font-family: var(--font-family-editorial);
+  font-size: clamp(2.5rem, 10vw, 4rem);
+  font-weight: 600;
+}
+
+.description {
+  max-width: 36rem;
+  margin-block-start: var(--space-6);
+  color: var(--color-neutral-700);
+}
+
+.actions,
+.session {
+  margin-block-start: var(--space-8);
+}
+
+.primaryButton,
+.secondaryButton {
+  min-height: 3rem;
+  border-radius: var(--radius-small);
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    color var(--transition-basic),
+    background-color var(--transition-basic),
+    border-color var(--transition-basic);
+}
+
+.primaryButton {
+  width: 100%;
+  max-width: 20rem;
+  border: 0.125rem solid var(--color-brand-dark-blue);
+  color: var(--color-brand-white);
+  background: var(--color-brand-dark-blue);
+}
+
+.primaryButton:hover:not(:disabled) {
+  color: var(--color-brand-dark-blue);
+  background: var(--color-brand-white);
+}
+
+.secondaryButton {
+  margin-block-start: var(--space-4);
+  padding-inline: var(--space-6);
+  border: 0.125rem solid var(--color-brand-dark-blue);
+  background: transparent;
+}
+
+.secondaryButton:hover:not(:disabled) {
+  color: var(--color-brand-white);
+  background: var(--color-brand-dark-blue);
+}
+
+.primaryButton:disabled,
+.secondaryButton:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.error {
+  max-width: 36rem;
+  margin-block-end: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-inline-start: var(--space-1) solid var(--color-brand-orange);
+  background: var(--color-neutral-100);
+  font-weight: 600;
+}
+
+.session {
+  padding-block-start: var(--space-6);
+  border-block-start: 0.125rem solid var(--color-neutral-100);
+}
+
+.sessionLabel {
+  color: var(--color-neutral-700);
+  font-size: 0.875rem;
+}
+
+.administrator {
+  overflow-wrap: anywhere;
+  font-weight: 700;
+}
+
+.signOut {
+  margin-block-start: var(--space-4);
+}
+
+.signOut .error {
+  margin-block-end: 0;
+}
+
+@media (min-width: 40rem) {
+  .page {
+    padding: var(--space-12) var(--space-8);
+  }
+
+  .content {
+    padding-inline-start: var(--space-8);
+  }
+}
