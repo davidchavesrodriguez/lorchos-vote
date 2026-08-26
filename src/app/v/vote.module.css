@@ -1,0 +1,180 @@
+.page {
+  min-height: 100svh;
+  padding: var(--space-6) var(--space-4) var(--space-12);
+  border-block-start: var(--space-2) solid var(--color-brand-cyan);
+  background: var(--color-brand-white);
+}
+
+.content {
+  width: 100%;
+  max-width: 42rem;
+  margin-inline: auto;
+}
+
+.header,
+.status,
+.success {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.brand {
+  margin-block-end: var(--space-4);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.title {
+  font-family: var(--font-family-editorial);
+  font-size: clamp(2.5rem, 12vw, 4.5rem);
+  font-weight: 600;
+}
+
+.group {
+  color: var(--color-neutral-700);
+  font-weight: 600;
+}
+
+.linkIdentity {
+  display: grid;
+  gap: var(--space-2);
+  margin-block-start: var(--space-6);
+  padding: var(--space-4);
+  border-inline-start: var(--space-1) solid var(--color-brand-orange);
+  background: var(--color-neutral-100);
+}
+
+.deadline {
+  margin-block: var(--space-6);
+  font-size: 0.9375rem;
+}
+
+.selection fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.selection legend,
+.confirmation h2 {
+  padding: 0;
+  font-size: 1.375rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.counter {
+  margin-block-start: var(--space-2);
+  color: var(--color-neutral-700);
+  font-weight: 600;
+}
+
+.candidateList,
+.confirmationList {
+  margin: var(--space-6) 0;
+  padding: 0;
+  list-style: none;
+  border-block-start: 0.0625rem solid var(--color-brand-dark-blue);
+}
+
+.candidateList li,
+.confirmationList li {
+  border-block-end: 0.0625rem solid var(--color-brand-dark-blue);
+}
+
+.candidateOption {
+  display: flex;
+  min-height: 3.75rem;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-2);
+  border-inline-start: var(--space-1) solid transparent;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.candidateOption:has(input:checked) {
+  border-inline-start-color: var(--color-brand-cyan);
+  background: var(--color-neutral-100);
+}
+
+.candidateOption:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.candidateOption input {
+  width: 1.5rem;
+  height: 1.5rem;
+  flex: 0 0 auto;
+  margin: 0;
+  accent-color: var(--color-brand-dark-blue);
+}
+
+.primaryButton,
+.secondaryButton {
+  min-height: 3.25rem;
+  padding: var(--space-3) var(--space-6);
+  border: 0.125rem solid var(--color-brand-dark-blue);
+  border-radius: var(--radius-small);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.primaryButton {
+  color: var(--color-brand-white);
+  background: var(--color-brand-dark-blue);
+}
+
+.secondaryButton {
+  background: var(--color-brand-white);
+}
+
+.primaryButton:disabled,
+.secondaryButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.confirmation {
+  margin-block-start: var(--space-8);
+}
+
+.confirmationList li {
+  min-height: 3.25rem;
+  padding: var(--space-3) var(--space-2);
+  font-weight: 600;
+}
+
+.actions {
+  display: grid;
+  gap: var(--space-3);
+  margin-block-start: var(--space-6);
+}
+
+.error,
+.statusMessage {
+  margin-block: var(--space-6);
+  padding: var(--space-4);
+  border: 0.125rem solid var(--color-brand-orange);
+  font-weight: 600;
+}
+
+.success {
+  margin-block-start: clamp(var(--space-8), 18vh, 8rem);
+  padding-inline-start: var(--space-4);
+  border-inline-start: var(--space-1) solid var(--color-brand-orange);
+}
+
+@media (min-width: 40rem) {
+  .page {
+    padding: var(--space-12) var(--space-8);
+  }
+
+  .actions {
+    grid-template-columns: 1fr 1fr;
+  }
+}
