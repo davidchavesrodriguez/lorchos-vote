@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
 
 import dotenv from 'dotenv';
-import { asc, inArray } from 'drizzle-orm';
+import { asc, eq, inArray } from 'drizzle-orm';
 
 dotenv.config({ path: '.env.local', quiet: true });
 process.env.APP_URL = 'http://localhost:3000';
@@ -288,7 +288,7 @@ test('individual generation rejects a participant from another election', async 
   assert.equal((await readCredentials([otherParticipantId])).length, 0);
 });
 
-test('credential operations reject an election that is not READY', async () => {
+test('credential operations reject a DRAFT election', async () => {
   const electionId = await createElection({ status: 'DRAFT' });
   const participantId = await createParticipant(
     electionId,
@@ -302,7 +302,94 @@ test('credential operations reject an election that is not READY', async () => {
   );
 
   assert.equal(bulkResult.type, 'notReady');
-  assert.equal(individualResult.type, 'notReady');
+  assert.equal(individualResult.type, 'notRegenerable');
+  assert.equal((await readCredentials([participantId])).length, 0);
+});
+
+test('individual regeneration works in OPEN before the deadline', async () => {
+  const electionId = await createElection();
+  const participantId = await createParticipant(
+    electionId,
+    'Votante en prazo',
+  );
+  const initialResult = await generateMissingVotingCredentials(electionId);
+  assert.equal(initialResult.type, 'success');
+  const before = await readCredentials([participantId]);
+  await db
+    .update(elections)
+    .set({
+      status: 'OPEN',
+      openedAt: new Date(),
+      closesAt: new Date(Date.now() + 30 * 60_000),
+    })
+    .where(eq(elections.id, electionId));
+
+  const result = await regenerateVotingCredential(electionId, participantId);
+  const afterRegeneration = await readCredentials([participantId]);
+
+  assert.equal(result.type, 'success');
+  assert.equal(afterRegeneration.length, before.length + 1);
+  assert.equal(
+    afterRegeneration.filter((credential) => credential.status === 'ACTIVE')
+      .length,
+    1,
+  );
+  assert.equal(
+    afterRegeneration.filter((credential) => credential.status === 'REVOKED')
+      .length,
+    1,
+  );
+});
+
+test('individual regeneration in OPEN is rejected after the deadline', async () => {
+  const electionId = await createElection({
+    status: 'OPEN',
+    openedAt: new Date(Date.now() - 60 * 60_000),
+    closesAt: new Date(Date.now() - 60_000),
+  });
+  const participantId = await createParticipant(
+    electionId,
+    'Votante fóra de prazo',
+  );
+
+  const result = await regenerateVotingCredential(electionId, participantId);
+
+  assert.equal(result.type, 'closesAtPassed');
+  assert.equal((await readCredentials([participantId])).length, 0);
+});
+
+test('bulk generation remains unavailable in OPEN', async () => {
+  const electionId = await createElection({
+    status: 'OPEN',
+    openedAt: new Date(),
+    closesAt: new Date(Date.now() + 30 * 60_000),
+  });
+  const participantId = await createParticipant(
+    electionId,
+    'Votante sen ligazón en aberta',
+  );
+
+  const result = await generateMissingVotingCredentials(electionId);
+
+  assert.equal(result.type, 'notReady');
+  assert.equal((await readCredentials([participantId])).length, 0);
+});
+
+test('individual regeneration remains unavailable in CLOSED', async () => {
+  const electionId = await createElection({
+    status: 'CLOSED',
+    openedAt: new Date(Date.now() - 60 * 60_000),
+    closesAt: new Date(Date.now() + 30 * 60_000),
+    closedAt: new Date(),
+  });
+  const participantId = await createParticipant(
+    electionId,
+    'Votante en pechada',
+  );
+
+  const result = await regenerateVotingCredential(electionId, participantId);
+
+  assert.equal(result.type, 'notRegenerable');
   assert.equal((await readCredentials([participantId])).length, 0);
 });
 

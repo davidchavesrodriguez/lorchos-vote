@@ -225,6 +225,103 @@
   font-weight: 600;
 }
 
+.openDeadline {
+  margin-block-start: var(--space-8);
+  padding-block: var(--space-4);
+  border-block: 0.125rem solid var(--color-brand-dark-blue);
+  font-size: clamp(1.25rem, 5vw, 1.75rem);
+  font-weight: 700;
+}
+
+.lifecycleWarning {
+  margin-block-start: var(--space-8);
+  padding: var(--space-3) var(--space-4);
+  border-inline-start: var(--space-1) solid var(--color-brand-orange);
+  background: var(--color-neutral-100);
+  font-weight: 700;
+}
+
+.lifecycleDates {
+  margin-block: var(--space-8) 0;
+}
+
+.lifecycleDates div {
+  display: grid;
+  gap: var(--space-1);
+  padding-block: var(--space-3);
+  border-block-end: 0.125rem solid var(--color-neutral-100);
+}
+
+.lifecycleDates div:first-child {
+  border-block-start: 0.125rem solid var(--color-neutral-100);
+}
+
+.lifecycleDates dt {
+  color: var(--color-neutral-700);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.lifecycleDates dd {
+  margin: 0;
+  font-weight: 700;
+}
+
+.lifecycleSection {
+  margin-block-start: var(--space-12);
+  padding-block-start: var(--space-8);
+  border-block-start: var(--space-1) solid var(--color-brand-orange);
+}
+
+.lifecycleSection h2 {
+  font-family: var(--font-family-editorial);
+  font-size: clamp(2rem, 8vw, 3rem);
+  font-weight: 600;
+}
+
+.lifecycleSection > p,
+.lifecycleForm,
+.lifecycleSection > form,
+.lifecycleSection > .inlineError {
+  margin-block-start: var(--space-4);
+}
+
+.credentialCoverage {
+  padding-inline-start: var(--space-3);
+  border-inline-start: var(--space-1) solid var(--color-brand-cyan);
+  font-weight: 700;
+}
+
+.lifecycleForm {
+  display: grid;
+  gap: var(--space-4);
+  max-width: 40rem;
+}
+
+.closingButton {
+  min-height: 3rem;
+  padding-inline: var(--space-6);
+  border: 0.125rem solid var(--color-brand-orange);
+  border-radius: var(--radius-small);
+  color: var(--color-brand-dark-blue);
+  background: transparent;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    color var(--transition-basic),
+    background-color var(--transition-basic);
+}
+
+.closingButton:hover:not(:disabled) {
+  color: var(--color-brand-white);
+  background: var(--color-brand-dark-blue);
+}
+
+.closingButton:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
 .votingLinks {
   margin-block-start: var(--space-12);
   padding-block-start: var(--space-8);
@@ -683,6 +780,11 @@
   }
 
   .details div {
+    grid-template-columns: minmax(10rem, 1fr) 2fr;
+    align-items: baseline;
+  }
+
+  .lifecycleDates div {
     grid-template-columns: minmax(10rem, 1fr) 2fr;
     align-items: baseline;
   }

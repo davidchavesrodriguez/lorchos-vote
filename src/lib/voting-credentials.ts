@@ -26,7 +26,9 @@ export type BulkVotingCredentialResult =
 
 export type IndividualVotingCredentialResult =
   | { type: 'missingElection' }
-  | { type: 'notReady' }
+  | { type: 'notRegenerable' }
+  | { type: 'missingClosesAt' }
+  | { type: 'closesAtPassed' }
   | { type: 'missingParticipant' }
   | { type: 'cannotVote' }
   | { type: 'hasVoted' }
@@ -124,7 +126,10 @@ export async function regenerateVotingCredential(
 ): Promise<IndividualVotingCredentialResult> {
   return db.transaction(async (tx) => {
     const [election] = await tx
-      .select({ status: elections.status })
+      .select({
+        status: elections.status,
+        closesAt: elections.closesAt,
+      })
       .from(elections)
       .where(eq(elections.id, electionId))
       .for('update');
@@ -133,8 +138,20 @@ export async function regenerateVotingCredential(
       return { type: 'missingElection' };
     }
 
-    if (election.status !== 'READY') {
-      return { type: 'notReady' };
+    if (election.status !== 'READY' && election.status !== 'OPEN') {
+      return { type: 'notRegenerable' };
+    }
+
+    if (election.status === 'OPEN' && election.closesAt === null) {
+      return { type: 'missingClosesAt' };
+    }
+
+    if (
+      election.status === 'OPEN' &&
+      election.closesAt !== null &&
+      Date.now() >= election.closesAt.getTime()
+    ) {
+      return { type: 'closesAtPassed' };
     }
 
     const [participant] = await tx
@@ -173,10 +190,20 @@ export async function regenerateVotingCredential(
         ),
       );
 
+    const mutationTime = new Date();
+
+    if (
+      election.status === 'OPEN' &&
+      election.closesAt !== null &&
+      mutationTime.getTime() >= election.closesAt.getTime()
+    ) {
+      return { type: 'closesAtPassed' };
+    }
+
     if (activeCredential) {
       await tx
         .update(votingCredentials)
-        .set({ status: 'REVOKED', revokedAt: new Date() })
+        .set({ status: 'REVOKED', revokedAt: mutationTime })
         .where(
           and(
             eq(votingCredentials.id, activeCredential.id),

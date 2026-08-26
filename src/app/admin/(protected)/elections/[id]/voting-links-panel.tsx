@@ -20,6 +20,9 @@ type VotingLinkVoter = {
 
 type VotingLinksPanelProps = {
   electionId: string;
+  electionStatus: 'READY' | 'OPEN';
+  canRegenerate: boolean;
+  regenerationUnavailableMessage?: string;
   voters: VotingLinkVoter[];
 };
 
@@ -28,6 +31,9 @@ const GENERIC_CLIENT_ERROR =
 
 export function VotingLinksPanel({
   electionId,
+  electionStatus,
+  canRegenerate,
+  regenerationUnavailableMessage,
   voters,
 }: VotingLinksPanelProps) {
   const router = useRouter();
@@ -170,18 +176,23 @@ export function VotingLinksPanel({
         </p>
       </div>
 
-      <form onSubmit={handleBulkGeneration} className={styles.votingLinksBulkAction}>
-        <button
-          className={styles.primaryButton}
-          type='submit'
-          disabled={isPending || allPendingVotersHaveActiveCredential}
-          aria-busy={isPending && pendingParticipantId === null}
+      {electionStatus === 'READY' ? (
+        <form
+          onSubmit={handleBulkGeneration}
+          className={styles.votingLinksBulkAction}
         >
-          {isPending && pendingParticipantId === null
-            ? 'Xerando ligazóns…'
-            : 'Xerar ligazóns pendentes'}
-        </button>
-      </form>
+          <button
+            className={styles.primaryButton}
+            type='submit'
+            disabled={isPending || allPendingVotersHaveActiveCredential}
+            aria-busy={isPending && pendingParticipantId === null}
+          >
+            {isPending && pendingParticipantId === null
+              ? 'Xerando ligazóns…'
+              : 'Xerar ligazóns pendentes'}
+          </button>
+        </form>
+      ) : null}
 
       {actionError ? (
         <p className={styles.inlineError} role='alert'>
@@ -268,6 +279,11 @@ export function VotingLinksPanel({
                 {voter.hasVoted ? (
                   <p className={styles.votingLinkUnavailable}>
                     Xa votou; non se pode xerar outra ligazón.
+                  </p>
+                ) : !canRegenerate ? (
+                  <p className={styles.votingLinkUnavailable}>
+                    {regenerationUnavailableMessage ??
+                      'Non se pode rexenerar a ligazón neste estado.'}
                   </p>
                 ) : (
                   <form

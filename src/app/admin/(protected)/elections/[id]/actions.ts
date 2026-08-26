@@ -6,6 +6,10 @@ import { revalidatePath } from 'next/cache';
 import { db } from '@/db';
 import { electionParticipants, elections } from '@/db/schema';
 import { requireAdminSession } from '@/lib/admin-session';
+import {
+  transitionOpenElectionToClosed,
+  transitionReadyElectionToOpen,
+} from '@/lib/election-lifecycle';
 import { transitionDraftElectionToReady } from '@/lib/election-preparation';
 import {
   generateMissingVotingCredentials,
@@ -32,12 +36,32 @@ const NOT_READY_ERROR =
   'A votación non se pode preparar porque o censo ou as regras xa non cumpren todos os requisitos.';
 const VOTING_LINKS_READY_REQUIRED_ERROR =
   'As ligazóns de voto só se poden xerar para unha votación preparada.';
+const VOTING_LINKS_REGENERATION_STATUS_ERROR =
+  'As ligazóns de voto só se poden rexenerar mentres a votación está preparada ou aberta.';
+const VOTING_LINKS_MISSING_DEADLINE_ERROR =
+  'A votación aberta non ten unha data límite válida e non permite rexenerar ligazóns.';
+const VOTING_LINKS_DEADLINE_PASSED_ERROR =
+  'O prazo de votación rematou e xa non se poden rexenerar ligazóns.';
 const VOTER_NOT_FOUND_ERROR =
   'A persoa non existe nesta votación ou non ten dereito a voto.';
 const VOTER_HAS_VOTED_ERROR =
   'Non se pode xerar outra ligazón porque esta persoa xa votou.';
+const OPENING_READY_REQUIRED_ERROR =
+  'A votación só se pode abrir cando está preparada.';
+const INVALID_CLOSING_DATE_ERROR =
+  'A data límite recibida non é válida. Escolle de novo a data e a hora.';
+const CLOSING_DATE_NOT_FUTURE_ERROR =
+  'A data límite debe ser posterior ao momento de apertura.';
+const OPENING_NO_VOTERS_ERROR =
+  'A votación non se pode abrir porque non hai persoas con dereito a voto.';
+const CLOSING_OPEN_REQUIRED_ERROR =
+  'Só se pode pechar unha votación que estea aberta.';
 
 export type PrepareElectionState = {
+  formError?: string;
+};
+
+export type ElectionLifecycleActionState = {
   formError?: string;
 };
 
@@ -424,6 +448,107 @@ export async function prepareElection(
   }
 }
 
+export async function openElection(
+  _previousState: ElectionLifecycleActionState,
+  formData: FormData,
+): Promise<ElectionLifecycleActionState> {
+  await requireAdminSession();
+
+  const electionId = readString(formData, 'electionId');
+  const closesAt = readString(formData, 'closesAt');
+
+  if (!UUID_PATTERN.test(electionId)) {
+    return { formError: ELECTION_NOT_FOUND_ERROR };
+  }
+
+  try {
+    const result = await db.transaction((tx) =>
+      transitionReadyElectionToOpen(tx, electionId, closesAt),
+    );
+
+    if (result.type === 'missing') {
+      return { formError: ELECTION_NOT_FOUND_ERROR };
+    }
+
+    if (result.type === 'notReady') {
+      return { formError: OPENING_READY_REQUIRED_ERROR };
+    }
+
+    if (result.type === 'invalidClosesAt') {
+      return { formError: INVALID_CLOSING_DATE_ERROR };
+    }
+
+    if (result.type === 'closesAtNotFuture') {
+      return { formError: CLOSING_DATE_NOT_FUTURE_ERROR };
+    }
+
+    if (result.type === 'noVoters') {
+      return { formError: OPENING_NO_VOTERS_ERROR };
+    }
+
+    if (result.type === 'votersHaveVoted') {
+      return {
+        formError:
+          result.voterCount === 1
+            ? 'A votación non se pode abrir porque unha persoa figura como xa votada.'
+            : `A votación non se pode abrir porque ${result.voterCount} persoas figuran como xa votadas.`,
+      };
+    }
+
+    if (result.type === 'missingActiveCredentials') {
+      return {
+        formError:
+          result.voterCount === 1
+            ? 'Falta 1 persoa por ter unha ligazón activa.'
+            : `Faltan ${result.voterCount} persoas por ter unha ligazón activa.`,
+      };
+    }
+
+    revalidatePath(`/admin/elections/${electionId}`);
+    revalidatePath('/admin');
+
+    return {};
+  } catch (error) {
+    logUnexpected('Election opening', error);
+    return { formError: GENERIC_ERROR };
+  }
+}
+
+export async function closeElection(
+  _previousState: ElectionLifecycleActionState,
+  formData: FormData,
+): Promise<ElectionLifecycleActionState> {
+  await requireAdminSession();
+
+  const electionId = readString(formData, 'electionId');
+
+  if (!UUID_PATTERN.test(electionId)) {
+    return { formError: ELECTION_NOT_FOUND_ERROR };
+  }
+
+  try {
+    const result = await db.transaction((tx) =>
+      transitionOpenElectionToClosed(tx, electionId),
+    );
+
+    if (result.type === 'missing') {
+      return { formError: ELECTION_NOT_FOUND_ERROR };
+    }
+
+    if (result.type === 'notOpen') {
+      return { formError: CLOSING_OPEN_REQUIRED_ERROR };
+    }
+
+    revalidatePath(`/admin/elections/${electionId}`);
+    revalidatePath('/admin');
+
+    return {};
+  } catch (error) {
+    logUnexpected('Election closing', error);
+    return { formError: GENERIC_ERROR };
+  }
+}
+
 export async function generateVotingLinks(
   electionId: string,
 ): Promise<VotingLinkActionResult> {
@@ -494,8 +619,16 @@ export async function regenerateVotingLink(
       return { formError: ELECTION_NOT_FOUND_ERROR };
     }
 
-    if (result.type === 'notReady') {
-      return { formError: VOTING_LINKS_READY_REQUIRED_ERROR };
+    if (result.type === 'notRegenerable') {
+      return { formError: VOTING_LINKS_REGENERATION_STATUS_ERROR };
+    }
+
+    if (result.type === 'missingClosesAt') {
+      return { formError: VOTING_LINKS_MISSING_DEADLINE_ERROR };
+    }
+
+    if (result.type === 'closesAtPassed') {
+      return { formError: VOTING_LINKS_DEADLINE_PASSED_ERROR };
     }
 
     if (

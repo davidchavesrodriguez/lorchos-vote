@@ -6,6 +6,7 @@ import { db } from '@/db';
 import { elections } from '@/db/schema';
 import { getElectionStatusLabel } from '@/lib/election-status';
 import styles from '../admin.module.css';
+import { LocalDateTime } from './local-date-time';
 
 export const metadata: Metadata = {
   title: 'Administración | Votacións GB Lorchos',
@@ -18,6 +19,7 @@ export default async function AdminPage() {
       title: elections.title,
       groupLabel: elections.groupLabel,
       status: elections.status,
+      closesAt: elections.closesAt,
     })
     .from(elections)
     .orderBy(desc(elections.createdAt));
@@ -46,6 +48,12 @@ export default async function AdminPage() {
                 <span>
                   Estado: {getElectionStatusLabel(election.status)}
                 </span>
+                {election.status === 'OPEN' && election.closesAt ? (
+                  <span>
+                    Data límite:{' '}
+                    <LocalDateTime value={election.closesAt.toISOString()} />
+                  </span>
+                ) : null}
               </Link>
             </li>
           ))}

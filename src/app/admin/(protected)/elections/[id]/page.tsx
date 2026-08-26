@@ -1,4 +1,4 @@
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -12,6 +12,9 @@ import {
 import { calculateElectionReadiness } from '@/lib/election-readiness';
 import { getElectionStatusLabel } from '@/lib/election-status';
 import styles from '../../../admin.module.css';
+import { LocalDateTime } from '../../local-date-time';
+import { CloseElectionForm } from './close-election-form';
+import { OpenElectionForm } from './open-election-form';
 import {
   MarkAllParticipantsForm,
   ParticipantControls,
@@ -50,6 +53,11 @@ export default async function ElectionDetailPage({
       maxSelections: elections.maxSelections,
       allowSelfVote: elections.allowSelfVote,
       minimumTurnout: elections.minimumTurnout,
+      closesAt: elections.closesAt,
+      openedAt: elections.openedAt,
+      closedAt: elections.closedAt,
+      deadlineExpired:
+        sql<boolean>`${elections.closesAt} IS NOT NULL AND ${elections.closesAt} <= now()`,
     })
     .from(elections)
     .where(eq(elections.id, id))
@@ -71,7 +79,9 @@ export default async function ElectionDetailPage({
     .orderBy(asc(electionParticipants.displayName));
   const isDraft = election.status === 'DRAFT';
   const isReady = election.status === 'READY';
-  const votingParticipants = isReady
+  const isOpen = election.status === 'OPEN';
+  const isClosed = election.status === 'CLOSED';
+  const votingParticipants = isReady || isOpen
     ? await db
         .select({
           id: electionParticipants.id,
@@ -95,6 +105,15 @@ export default async function ElectionDetailPage({
         )
         .orderBy(asc(electionParticipants.displayName))
     : [];
+  const activeCredentialCount = votingParticipants.filter(
+    (participant) => participant.activeCredentialId !== null,
+  ).length;
+  const isDeadlineExpired = isOpen && election.deadlineExpired;
+  const canRegenerateVotingLinks =
+    isReady ||
+    (isOpen &&
+      election.closesAt !== null &&
+      !isDeadlineExpired);
   const allParticipantsEligible = participants.every(
     (participant) => participant.canVote && participant.canBeCandidate,
   );
@@ -180,16 +199,85 @@ export default async function ElectionDetailPage({
         </div>
       </dl>
 
-      {election.status === 'READY' ? (
-        <p className={styles.readyNotice}>
-          A configuración e o censo están pechados. Xa podes xerar as ligazóns
-          individuais para as persoas con dereito a voto.
+      {isOpen && election.closesAt ? (
+        <p className={styles.openDeadline}>
+          Aberta ata <LocalDateTime value={election.closesAt.toISOString()} />
         </p>
       ) : null}
 
+      {isOpen && !election.closesAt ? (
+        <p className={styles.lifecycleWarning} role='alert'>
+          A votación aberta non ten unha data límite definida.
+        </p>
+      ) : null}
+
+      {isClosed ? (
+        <dl className={styles.lifecycleDates}>
+          <div>
+            <dt>Apertura</dt>
+            <dd>
+              {election.openedAt ? (
+                <LocalDateTime value={election.openedAt.toISOString()} />
+              ) : (
+                'Non consta'
+              )}
+            </dd>
+          </div>
+          <div>
+            <dt>Data límite</dt>
+            <dd>
+              {election.closesAt ? (
+                <LocalDateTime value={election.closesAt.toISOString()} />
+              ) : (
+                'Non consta'
+              )}
+            </dd>
+          </div>
+          <div>
+            <dt>Peche</dt>
+            <dd>
+              {election.closedAt ? (
+                <LocalDateTime value={election.closedAt.toISOString()} />
+              ) : (
+                'Non consta'
+              )}
+            </dd>
+          </div>
+        </dl>
+      ) : null}
+
       {isReady ? (
+        <p className={styles.readyNotice}>
+          A configuración e o censo están pechados. Xera as ligazóns que falten
+          antes de abrir a votación.
+        </p>
+      ) : null}
+
+      {isOpen ? (
+        <p className={styles.readyNotice}>
+          {isDeadlineExpired
+            ? 'O prazo de votación rematou.'
+            : 'A votación está aberta. As persoas con ligazón activa poden votar ata a data límite.'}
+        </p>
+      ) : null}
+
+      {isClosed ? (
+        <p className={styles.readyNotice}>
+          A votación está pechada e xa non admite novos votos.
+        </p>
+      ) : null}
+
+      {isReady || isOpen ? (
         <VotingLinksPanel
+          key={election.status}
           electionId={id}
+          electionStatus={isReady ? 'READY' : 'OPEN'}
+          canRegenerate={canRegenerateVotingLinks}
+          regenerationUnavailableMessage={
+            election.closesAt === null
+              ? 'A votación non ten unha data límite válida; non se pode rexenerar a ligazón.'
+              : 'O prazo rematou; non se pode rexenerar a ligazón.'
+          }
           voters={votingParticipants.map((participant) => ({
             id: participant.id,
             displayName: participant.displayName,
@@ -198,6 +286,16 @@ export default async function ElectionDetailPage({
           }))}
         />
       ) : null}
+
+      {isReady ? (
+        <OpenElectionForm
+          electionId={id}
+          voterCount={votingParticipants.length}
+          activeCredentialCount={activeCredentialCount}
+        />
+      ) : null}
+
+      {isOpen ? <CloseElectionForm electionId={id} /> : null}
 
       <section className={styles.census} aria-labelledby='census-title'>
         <div className={styles.censusHeading}>
