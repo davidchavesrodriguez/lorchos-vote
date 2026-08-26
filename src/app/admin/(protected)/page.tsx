@@ -4,6 +4,7 @@ import Link from 'next/link';
 
 import { db } from '@/db';
 import { elections } from '@/db/schema';
+import { getElectionStatusLabel } from '@/lib/election-status';
 import styles from '../admin.module.css';
 
 export const metadata: Metadata = {
@@ -43,10 +44,7 @@ export default async function AdminPage() {
                 <span className={styles.electionTitle}>{election.title}</span>
                 <span>{election.groupLabel}</span>
                 <span>
-                  Estado:{' '}
-                  {election.status === 'DRAFT'
-                    ? 'Borrador'
-                    : election.status}
+                  Estado: {getElectionStatusLabel(election.status)}
                 </span>
               </Link>
             </li>

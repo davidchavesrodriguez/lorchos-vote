@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test:readiness": "node --experimental-strip-types --import ./tests/server-only-hook.mjs --test tests/election-readiness.test.mjs",
+    "test:preparation": "node --experimental-strip-types --import ./tests/server-only-hook.mjs --test --test-concurrency=1 tests/election-preparation.integration.test.mts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio"

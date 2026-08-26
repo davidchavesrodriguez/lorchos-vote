@@ -5,12 +5,15 @@ import { notFound } from 'next/navigation';
 
 import { db } from '@/db';
 import { electionParticipants, elections } from '@/db/schema';
+import { calculateElectionReadiness } from '@/lib/election-readiness';
+import { getElectionStatusLabel } from '@/lib/election-status';
 import styles from '../../../admin.module.css';
 import {
   MarkAllParticipantsForm,
   ParticipantControls,
 } from './participant-controls';
 import { ParticipantImportForm } from './participant-import-form';
+import { PrepareElectionForm } from './prepare-election-form';
 
 export const metadata: Metadata = {
   title: 'Detalle da votación | Administración',
@@ -65,6 +68,50 @@ export default async function ElectionDetailPage({
   const allParticipantsEligible = participants.every(
     (participant) => participant.canVote && participant.canBeCandidate,
   );
+  const readiness = isDraft
+    ? calculateElectionReadiness(election, participants)
+    : null;
+  const readinessChecks = readiness
+    ? [
+        {
+          valid: readiness.hasVoters,
+          text: readiness.hasVoters
+            ? `${readiness.voterCount} ${readiness.voterCount === 1 ? 'persoa pode' : 'persoas poden'} votar`
+            : 'Non hai persoas con dereito a voto',
+        },
+        {
+          valid: readiness.hasCandidates,
+          text: readiness.hasCandidates
+            ? `${readiness.candidateCount} ${readiness.candidateCount === 1 ? 'persoa pode' : 'persoas poden'} ser candidata${readiness.candidateCount === 1 ? '' : 's'}`
+            : 'Non hai persoas que poidan ser candidatas',
+        },
+        {
+          valid: readiness.hasEnoughCandidatesForWinners,
+          text: readiness.hasEnoughCandidatesForWinners
+            ? `Hai candidatos suficientes para ${election.numberOfWinners} ${election.numberOfWinners === 1 ? 'gañador' : 'gañadores'}`
+            : 'Faltan candidatos para cubrir as prazas',
+        },
+        {
+          valid:
+            readiness.hasVoters &&
+            readiness.allVotersHaveEnoughEligibleCandidates,
+          text: !readiness.hasVoters
+            ? 'Non hai votantes para comprobar as seleccións'
+            : readiness.allVotersHaveEnoughEligibleCandidates
+              ? `Todos os votantes poden realizar ${election.maxSelections} ${election.maxSelections === 1 ? 'selección' : 'seleccións'}`
+              : `Hai ${readiness.affectedVoterCount} ${readiness.affectedVoterCount === 1 ? 'votante que non ten' : 'votantes que non teñen'} suficientes candidatos dispoñibles`,
+        },
+        {
+          valid: readiness.isMinimumTurnoutReachable,
+          text:
+            election.minimumTurnout === null
+              ? 'Sen participación mínima'
+              : readiness.isMinimumTurnoutReachable
+                ? 'A participación mínima é alcanzable'
+                : `A participación mínima require ${election.minimumTurnout} ${election.minimumTurnout === 1 ? 'votante' : 'votantes'} e só hai ${readiness.voterCount} ${readiness.voterCount === 1 ? 'votante' : 'votantes'}`,
+        },
+      ]
+    : [];
 
   return (
     <section aria-labelledby='election-title'>
@@ -81,9 +128,7 @@ export default async function ElectionDetailPage({
         </div>
         <div>
           <dt>Estado</dt>
-          <dd>
-            {election.status === 'DRAFT' ? 'Borrador' : election.status}
-          </dd>
+          <dd>{getElectionStatusLabel(election.status)}</dd>
         </div>
         <div>
           <dt>Número de gañadores</dt>
@@ -104,6 +149,13 @@ export default async function ElectionDetailPage({
           <dd>{election.minimumTurnout ?? 'Sen mínimo'}</dd>
         </div>
       </dl>
+
+      {election.status === 'READY' ? (
+        <p className={styles.readyNotice}>
+          A configuración e o censo están pechados. O seguinte paso será xerar
+          as ligazóns de voto.
+        </p>
+      ) : null}
 
       <section className={styles.census} aria-labelledby='census-title'>
         <div className={styles.censusHeading}>
@@ -159,6 +211,38 @@ export default async function ElectionDetailPage({
           </>
         )}
       </section>
+
+      {readiness ? (
+        <section
+          className={styles.readiness}
+          aria-labelledby='readiness-title'
+        >
+          <h2 id='readiness-title'>Preparación</h2>
+          <ul className={styles.readinessList}>
+            {readinessChecks.map((check) => (
+              <li
+                key={check.text}
+                className={
+                  check.valid
+                    ? styles.readinessItemValid
+                    : styles.readinessItemInvalid
+                }
+              >
+                <strong>{check.valid ? 'Cumpre:' : 'Non cumpre:'}</strong>{' '}
+                {check.text}
+              </li>
+            ))}
+          </ul>
+          {readiness.ready ? (
+            <PrepareElectionForm electionId={id} />
+          ) : (
+            <p className={styles.preparationBlocked}>
+              A votación só se poderá preparar cando se cumpran todos os
+              requisitos anteriores.
+            </p>
+          )}
+        </section>
+      ) : null}
     </section>
   );
 }

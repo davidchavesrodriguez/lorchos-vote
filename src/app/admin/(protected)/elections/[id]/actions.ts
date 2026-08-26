@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache';
 import { db } from '@/db';
 import { electionParticipants, elections } from '@/db/schema';
 import { requireAdminSession } from '@/lib/admin-session';
+import { transitionDraftElectionToReady } from '@/lib/election-preparation';
 
 import type {
   ParticipantImportState,
@@ -20,6 +21,14 @@ const ELECTION_NOT_FOUND_ERROR = 'A votación xa non existe.';
 const PARTICIPANT_NOT_FOUND_ERROR = 'A persoa xa non existe neste censo.';
 const GENERIC_ERROR =
   'Non foi posible completar a operación. Téntao de novo dentro duns intres.';
+const PREPARATION_DRAFT_REQUIRED_ERROR =
+  'A votación só se pode preparar mentres está en borrador.';
+const NOT_READY_ERROR =
+  'A votación non se pode preparar porque o censo ou as regras xa non cumpren todos os requisitos.';
+
+export type PrepareElectionState = {
+  formError?: string;
+};
 
 function readString(formData: FormData, field: string): string {
   const value = formData.get(field);
@@ -354,6 +363,46 @@ export async function deleteParticipant(
     return { successMessage: 'Persoa eliminada.' };
   } catch (error) {
     logUnexpected('Participant deletion', error);
+    return { formError: GENERIC_ERROR };
+  }
+}
+
+export async function prepareElection(
+  _previousState: PrepareElectionState,
+  formData: FormData,
+): Promise<PrepareElectionState> {
+  await requireAdminSession();
+
+  const electionId = readString(formData, 'electionId');
+
+  if (!UUID_PATTERN.test(electionId)) {
+    return { formError: ELECTION_NOT_FOUND_ERROR };
+  }
+
+  try {
+    const result = await db.transaction((tx) =>
+      transitionDraftElectionToReady(tx, electionId),
+    );
+
+    if (result.type === 'missing') {
+      return { formError: ELECTION_NOT_FOUND_ERROR };
+    }
+
+    if (result.type === 'notDraft') {
+      return { formError: PREPARATION_DRAFT_REQUIRED_ERROR };
+    }
+
+    if (result.type === 'notReady') {
+      revalidatePath(`/admin/elections/${electionId}`);
+      return { formError: NOT_READY_ERROR };
+    }
+
+    revalidatePath(`/admin/elections/${electionId}`);
+    revalidatePath('/admin');
+
+    return {};
+  } catch (error) {
+    logUnexpected('Election preparation', error);
     return { formError: GENERIC_ERROR };
   }
 }

@@ -217,6 +217,14 @@
   font-weight: 700;
 }
 
+.readyNotice {
+  margin-block-start: var(--space-6);
+  padding: var(--space-3) var(--space-4);
+  border-inline-start: var(--space-1) solid var(--color-brand-cyan);
+  background: var(--color-neutral-100);
+  font-weight: 600;
+}
+
 .census {
   margin-block-start: var(--space-12);
   padding-block-start: var(--space-8);
@@ -302,6 +310,62 @@
 .censusEmptyState {
   margin-block-start: var(--space-8);
   color: var(--color-neutral-700);
+}
+
+.readiness {
+  margin-block-start: var(--space-12);
+  padding-block-start: var(--space-8);
+  border-block-start: var(--space-1) solid var(--color-brand-orange);
+}
+
+.readiness h2 {
+  font-family: var(--font-family-editorial);
+  font-size: clamp(2rem, 8vw, 3rem);
+  font-weight: 600;
+}
+
+.readinessList {
+  display: grid;
+  gap: var(--space-3);
+  margin: var(--space-6) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.readinessList li {
+  padding-inline-start: var(--space-3);
+  border-inline-start: var(--space-1) solid var(--color-brand-cyan);
+}
+
+.readinessList .readinessItemValid {
+  border-inline-start-color: var(--color-brand-cyan);
+}
+
+.readinessList .readinessItemInvalid {
+  border-inline-start-color: var(--color-brand-orange);
+}
+
+.preparationAction,
+.preparationBlocked {
+  margin-block-start: var(--space-6);
+}
+
+.preparationAction {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.preparationAction p {
+  max-width: 40rem;
+}
+
+.preparationAction .primaryButton {
+  padding-inline: var(--space-6);
+}
+
+.preparationBlocked {
+  color: var(--color-neutral-700);
+  font-weight: 600;
 }
 
 .markAllAction {
