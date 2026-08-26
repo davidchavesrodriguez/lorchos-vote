@@ -9,7 +9,9 @@ import {
   elections,
   votingCredentials,
 } from '@/db/schema';
+import { getAdminElectionResults } from '@/lib/admin-election-results';
 import { calculateElectionReadiness } from '@/lib/election-readiness';
+import type { ResultPlacement } from '@/lib/election-result-calculation';
 import { getElectionStatusLabel } from '@/lib/election-status';
 import styles from '../../../admin.module.css';
 import { LocalDateTime } from '../../local-date-time';
@@ -33,6 +35,22 @@ type ElectionDetailPageProps = {
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function getPlacementLabel(placement: ResultPlacement): string | null {
+  if (placement === 'elected') {
+    return 'Con praza';
+  }
+
+  if (placement === 'guaranteed') {
+    return 'Praza asegurada';
+  }
+
+  if (placement === 'tied') {
+    return 'Empate por praza';
+  }
+
+  return null;
+}
 
 export default async function ElectionDetailPage({
   params,
@@ -67,16 +85,20 @@ export default async function ElectionDetailPage({
     notFound();
   }
 
-  const participants = await db
-    .select({
-      id: electionParticipants.id,
-      displayName: electionParticipants.displayName,
-      canVote: electionParticipants.canVote,
-      canBeCandidate: electionParticipants.canBeCandidate,
-    })
-    .from(electionParticipants)
-    .where(eq(electionParticipants.electionId, id))
-    .orderBy(asc(electionParticipants.displayName));
+  const [participants, resultResolution] = await Promise.all([
+    db
+      .select({
+        id: electionParticipants.id,
+        displayName: electionParticipants.displayName,
+        canVote: electionParticipants.canVote,
+        canBeCandidate: electionParticipants.canBeCandidate,
+        hasVoted: electionParticipants.hasVoted,
+      })
+      .from(electionParticipants)
+      .where(eq(electionParticipants.electionId, id))
+      .orderBy(asc(electionParticipants.displayName)),
+    getAdminElectionResults(id),
+  ]);
   const isDraft = election.status === 'DRAFT';
   const isReady = election.status === 'READY';
   const isOpen = election.status === 'OPEN';
@@ -117,6 +139,17 @@ export default async function ElectionDetailPage({
   const allParticipantsEligible = participants.every(
     (participant) => participant.canVote && participant.canBeCandidate,
   );
+  const participationVoters = participants.filter(
+    (participant) => participant.canVote,
+  );
+  const votedCount = participationVoters.filter(
+    (participant) => participant.hasVoted,
+  ).length;
+  const pendingCount = participationVoters.length - votedCount;
+  const turnoutPercentage =
+    participationVoters.length === 0
+      ? 0
+      : Math.round((votedCount / participationVoters.length) * 100);
   const readiness = isDraft
     ? calculateElectionReadiness(election, participants)
     : null;
@@ -265,6 +298,145 @@ export default async function ElectionDetailPage({
         <p className={styles.readyNotice}>
           A votación está pechada e xa non admite novos votos.
         </p>
+      ) : null}
+
+      {isReady || isOpen || isClosed ? (
+        <section
+          className={styles.administrativeSection}
+          aria-labelledby='participation-title'
+        >
+          <div className={styles.sectionHeading}>
+            <h2 id='participation-title'>Participación</h2>
+            <p>
+              {votedCount} de {participationVoters.length}{' '}
+              {votedCount === 1 && participationVoters.length === 1
+                ? 'persoa votou'
+                : 'persoas votaron'}{' '}
+              ·{' '}
+              {turnoutPercentage} %
+            </p>
+          </div>
+          <p className={styles.participationPending}>
+            {pendingCount}{' '}
+            {pendingCount === 1 ? 'persoa pendente' : 'persoas pendentes'}
+          </p>
+          {participationVoters.length === 0 ? (
+            <p className={styles.sectionEmptyState}>
+              Non hai persoas con dereito a voto.
+            </p>
+          ) : (
+            <ul className={styles.participationList}>
+              {participationVoters.map((participant) => (
+                <li key={participant.id}>
+                  <span>{participant.displayName}</span>
+                  <strong>
+                    {participant.hasVoted ? 'Votou' : 'Pendente'}
+                  </strong>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      ) : null}
+
+      {isReady || isOpen ? (
+        <p className={styles.resultsUnavailable}>
+          Os resultados estarán dispoñibles cando a votación estea pechada.
+        </p>
+      ) : null}
+
+      {resultResolution.type === 'success' ? (
+        <section
+          className={styles.administrativeSection}
+          aria-labelledby='results-title'
+        >
+          <h2 id='results-title'>Resultados</h2>
+          <dl className={styles.resultsSummary}>
+            <div>
+              <dt>Papeletas emitidas</dt>
+              <dd>{resultResolution.ballotCount}</dd>
+            </div>
+            <div>
+              <dt>Participación</dt>
+              <dd>
+                {resultResolution.votedCount} de {resultResolution.voterCount}{' '}
+                {resultResolution.votedCount === 1 &&
+                resultResolution.voterCount === 1
+                  ? 'persoa'
+                  : 'persoas'}{' '}
+                · {resultResolution.turnoutPercentage} %
+              </dd>
+            </div>
+            <div>
+              <dt>Participación mínima</dt>
+              <dd>
+                {resultResolution.turnoutStatus === 'notRequired'
+                  ? 'Sen participación mínima'
+                  : resultResolution.turnoutStatus === 'met'
+                    ? 'Participación mínima cumprida'
+                    : 'Non se acadou a participación mínima'}
+              </dd>
+            </div>
+          </dl>
+
+          {resultResolution.turnoutStatus === 'notMet' ? (
+            <p className={styles.resultWarning} role='alert'>
+              Non se acadou a participación mínima. O recuento móstrase para
+              revisión, pero non se marcan prazas. A decisión sobre a validez
+              corresponde ao club.
+            </p>
+          ) : null}
+
+          {resultResolution.integrityStatus === 'inconsistent' ? (
+            <p className={styles.resultWarning} role='alert'>
+              Detectouse unha inconsistencia entre a participación e as
+              papeletas rexistradas.
+            </p>
+          ) : null}
+
+          {resultResolution.canAssignSeats &&
+          resultResolution.tie.affectsSeats ? (
+            <p className={styles.tieNotice}>
+              Hai un empate entre{' '}
+              {resultResolution.tie.tiedCandidateIds.length} persoas por{' '}
+              {resultResolution.tie.seatsAvailableAmongTie}{' '}
+              {resultResolution.tie.seatsAvailableAmongTie === 1
+                ? 'praza'
+                : 'prazas'}
+              . A resolución corresponde ao club.
+            </p>
+          ) : null}
+
+          {resultResolution.rows.length === 0 ? (
+            <p className={styles.sectionEmptyState}>
+              Non hai candidaturas para recontar.
+            </p>
+          ) : (
+            <ol className={styles.resultList}>
+              {resultResolution.rows.map((row) => {
+                const placementLabel = getPlacementLabel(row.placement);
+
+                return (
+                  <li key={row.candidateId} value={row.rank}>
+                    <div className={styles.resultRow}>
+                      <span className={styles.resultCandidate}>
+                        {row.displayName}
+                      </span>
+                      <span className={styles.resultVotes}>
+                        {row.votes} {row.votes === 1 ? 'voto' : 'votos'}
+                      </span>
+                      {placementLabel ? (
+                        <strong className={styles.resultPlacement}>
+                          {placementLabel}
+                        </strong>
+                      ) : null}
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
+          )}
+        </section>
       ) : null}
 
       {isReady || isOpen ? (

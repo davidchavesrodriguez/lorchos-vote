@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "npm run test:readiness && npm run test:preparation && npm run test:tokens && npm run test:credentials && npm run test:lifecycle && npm run test:public-voting-order && npm run test:public-voting-headers && npm run test:public-voting",
+    "test": "npm run test:readiness && npm run test:preparation && npm run test:tokens && npm run test:credentials && npm run test:lifecycle && npm run test:public-voting-order && npm run test:public-voting-headers && npm run test:public-voting && npm run test:results",
     "test:readiness": "node --experimental-strip-types --import ./tests/server-only-hook.mjs --test tests/election-readiness.test.mjs",
     "test:preparation": "node --experimental-strip-types --import ./tests/server-only-hook.mjs --test --test-concurrency=1 tests/election-preparation.integration.test.mts",
     "test:tokens": "node --experimental-strip-types --import ./tests/server-only-hook.mjs --test tests/voting-token.test.mjs",
@@ -18,7 +18,8 @@
     "test:public-voting": "node --experimental-strip-types --import ./tests/server-only-hook.mjs --test --test-concurrency=1 tests/public-voting.integration.test.mts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "test:results": "node --experimental-strip-types --import ./tests/server-only-hook.mjs --test --test-concurrency=1 tests/election-result-calculation.test.mjs tests/admin-election-results.integration.test.mts"
   },
   "dependencies": {
     "@fontsource/cormorant-garamond": "^5.3.0",
