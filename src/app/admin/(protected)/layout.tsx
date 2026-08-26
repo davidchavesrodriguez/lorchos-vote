@@ -15,7 +15,7 @@ export default async function ProtectedAdminLayout({
   const administrator = session.user.name || session.user.email;
 
   return (
-    <main className={styles.page}>
+    <main className={`${styles.page} ${styles.protectedPage}`}>
       <div className={styles.content}>
         <p className={styles.identity}>GB Lorchos · Administración</p>
         {children}

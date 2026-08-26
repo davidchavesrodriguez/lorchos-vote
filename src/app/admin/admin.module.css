@@ -9,7 +9,7 @@
 
 .content {
   width: 100%;
-  max-width: 38rem;
+  max-width: 48rem;
   margin-inline: auto;
   padding-inline-start: var(--space-4);
   border-inline-start: var(--space-1) solid var(--color-brand-orange);
@@ -30,6 +30,86 @@
   font-weight: 600;
 }
 
+.headingRow {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-6);
+}
+
+.primaryLink {
+  display: inline-flex;
+  min-height: 3rem;
+  align-items: center;
+  justify-content: center;
+  padding-inline: var(--space-6);
+  border: 0.125rem solid var(--color-brand-dark-blue);
+  border-radius: var(--radius-small);
+  color: var(--color-brand-white);
+  background: var(--color-brand-dark-blue);
+  font-weight: 700;
+  text-decoration: none;
+  transition:
+    color var(--transition-basic),
+    background-color var(--transition-basic);
+}
+
+.primaryLink:hover {
+  color: var(--color-brand-dark-blue);
+  background: var(--color-brand-white);
+}
+
+.protectedPage {
+  align-items: start;
+}
+
+.electionList {
+  margin: var(--space-8) 0 0;
+  padding: 0;
+  border-block-start: 0.125rem solid var(--color-neutral-100);
+  list-style: none;
+}
+
+.electionList li {
+  border-block-end: 0.125rem solid var(--color-neutral-100);
+}
+
+.electionLink {
+  display: grid;
+  gap: var(--space-1);
+  padding-block: var(--space-4);
+  text-decoration: none;
+}
+
+.electionLink:hover .electionTitle {
+  text-decoration: underline;
+  text-decoration-thickness: 0.12em;
+  text-underline-offset: 0.18em;
+}
+
+.electionLink span:not(.electionTitle) {
+  color: var(--color-neutral-700);
+  font-size: 0.875rem;
+}
+
+.electionTitle {
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.emptyState {
+  margin-block-start: var(--space-8);
+  padding-block: var(--space-6);
+  border-block: 0.125rem solid var(--color-neutral-100);
+  color: var(--color-neutral-700);
+}
+
+.backLink {
+  display: inline-block;
+  margin-block-end: var(--space-6);
+  font-weight: 600;
+}
+
 .description {
   max-width: 36rem;
   margin-block-start: var(--space-6);
@@ -39,6 +119,96 @@
 .actions,
 .session {
   margin-block-start: var(--space-8);
+}
+
+.form {
+  display: grid;
+  gap: var(--space-6);
+  margin-block-start: var(--space-8);
+}
+
+.field {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.field label,
+.checkboxField label {
+  font-weight: 700;
+}
+
+.field input {
+  width: 100%;
+  min-height: 3rem;
+  padding: var(--space-2) var(--space-3);
+  border: 0.125rem solid var(--color-neutral-700);
+  border-radius: var(--radius-small);
+  background: var(--color-brand-white);
+}
+
+.field input[aria-invalid='true'] {
+  border-color: var(--color-brand-dark-blue);
+  outline: 0.125rem solid var(--color-brand-orange);
+  outline-offset: 0.125rem;
+}
+
+.numberFields {
+  display: grid;
+  gap: var(--space-6);
+}
+
+.hint {
+  color: var(--color-neutral-700);
+  font-size: 0.875rem;
+}
+
+.fieldError {
+  padding-inline-start: var(--space-3);
+  border-inline-start: var(--space-1) solid var(--color-brand-orange);
+  font-weight: 600;
+}
+
+.checkboxField {
+  display: flex;
+  min-height: 3rem;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.checkboxField input {
+  width: 1.5rem;
+  height: 1.5rem;
+  margin: 0;
+}
+
+.form .primaryButton {
+  padding-inline: var(--space-6);
+}
+
+.details {
+  margin-block: var(--space-8) 0;
+}
+
+.details div {
+  display: grid;
+  gap: var(--space-1);
+  padding-block: var(--space-4);
+  border-block-end: 0.125rem solid var(--color-neutral-100);
+}
+
+.details div:first-child {
+  border-block-start: 0.125rem solid var(--color-neutral-100);
+}
+
+.details dt {
+  color: var(--color-neutral-700);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.details dd {
+  margin: 0;
+  font-weight: 700;
 }
 
 .primaryButton,
@@ -123,5 +293,20 @@
 
   .content {
     padding-inline-start: var(--space-8);
+  }
+
+  .headingRow {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .numberFields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .details div {
+    grid-template-columns: minmax(10rem, 1fr) 2fr;
+    align-items: baseline;
   }
 }
