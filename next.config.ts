@@ -1,8 +1,21 @@
 import type { NextConfig } from 'next';
 
+const generalSecurityHeaders = [
+  { key: 'X-Content-Type-Options', value: 'nosniff' },
+  { key: 'X-Frame-Options', value: 'DENY' },
+  {
+    key: 'Content-Security-Policy',
+    value: `frame-ancestors 'none'; base-uri 'self'; form-action 'self'`,
+  },
+];
+
 const nextConfig: NextConfig = {
   headers() {
     return [
+      {
+        source: '/:path*',
+        headers: generalSecurityHeaders,
+      },
       {
         source: '/v',
         headers: [

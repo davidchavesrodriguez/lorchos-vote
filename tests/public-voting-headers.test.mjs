@@ -3,29 +3,53 @@ import test from 'node:test';
 
 import nextConfig from '../next.config.ts';
 
-test('public voting routes receive credential-safe response headers', async () => {
+function headersByName(headers) {
+  return new Map(headers.map(({ key, value }) => [key.toLowerCase(), value]));
+}
+
+test('all application routes receive general security headers', async () => {
   assert.equal(typeof nextConfig.headers, 'function');
 
   const routes = await nextConfig.headers();
-  const publicVotingRoute = routes.find(({ source }) => source === '/v');
-  const ballotRoute = routes.find(
-    ({ source }) => source === '/v/papeleta/:sessionId',
-  );
-  const exchangeRoute = routes.find(
-    ({ source }) => source === '/api/voting/session',
+  const generalRoute = routes.find(({ source }) => source === '/:path*');
+
+  assert.ok(generalRoute);
+
+  const headers = headersByName(generalRoute.headers);
+  assert.equal(headers.get('x-content-type-options'), 'nosniff');
+  assert.equal(headers.get('x-frame-options'), 'DENY');
+
+  const contentSecurityPolicy = headers.get('content-security-policy');
+  assert.ok(contentSecurityPolicy);
+
+  const directives = new Set(
+    contentSecurityPolicy
+      .split(';')
+      .map((directive) => directive.trim())
+      .filter(Boolean),
   );
 
-  assert.ok(publicVotingRoute);
-  assert.ok(ballotRoute);
-  assert.ok(exchangeRoute);
-  assert.deepEqual(publicVotingRoute.headers, [
-    { key: 'Referrer-Policy', value: 'no-referrer' },
-    { key: 'Cache-Control', value: 'private, no-store' },
-    {
-      key: 'X-Robots-Tag',
-      value: 'noindex, nofollow, noarchive',
-    },
+  assert.ok(directives.has(`frame-ancestors 'none'`));
+  assert.ok(directives.has(`base-uri 'self'`));
+  assert.ok(directives.has(`form-action 'self'`));
+});
+
+test('public voting routes retain credential-safe response headers', async () => {
+  const routes = await nextConfig.headers();
+  const expectedHeaders = new Map([
+    ['referrer-policy', 'no-referrer'],
+    ['cache-control', 'private, no-store'],
+    ['x-robots-tag', 'noindex, nofollow, noarchive'],
   ]);
-  assert.deepEqual(ballotRoute.headers, publicVotingRoute.headers);
-  assert.deepEqual(exchangeRoute.headers, publicVotingRoute.headers);
+
+  for (const source of [
+    '/v',
+    '/v/papeleta/:sessionId',
+    '/api/voting/session',
+  ]) {
+    const route = routes.find((candidate) => candidate.source === source);
+
+    assert.ok(route, `Missing header configuration for ${source}`);
+    assert.deepEqual(headersByName(route.headers), expectedHeaders);
+  }
 });
