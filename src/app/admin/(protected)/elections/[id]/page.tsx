@@ -10,6 +10,7 @@ import {
   votingCredentials,
 } from '@/db/schema';
 import { getAdminElectionResults } from '@/lib/admin-election-results';
+import { requireAdminSession } from '@/lib/admin-session';
 import { calculateElectionReadiness } from '@/lib/election-readiness';
 import type { ResultPlacement } from '@/lib/election-result-calculation';
 import { getElectionStatusLabel } from '@/lib/election-status';
@@ -55,6 +56,8 @@ function getPlacementLabel(placement: ResultPlacement): string | null {
 export default async function ElectionDetailPage({
   params,
 }: ElectionDetailPageProps) {
+  await requireAdminSession();
+
   const { id } = await params;
 
   if (!UUID_PATTERN.test(id)) {

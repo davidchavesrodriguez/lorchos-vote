@@ -13,6 +13,7 @@ import {
   calculateElectionResults,
   type ElectionResultRow,
 } from '@/lib/election-result-calculation';
+import { requireAdminSession } from '@/lib/admin-session';
 
 type TurnoutStatus = 'notRequired' | 'met' | 'notMet';
 
@@ -44,6 +45,8 @@ export type AdminElectionResultsResolution =
 export async function getAdminElectionResults(
   electionId: string,
 ): Promise<AdminElectionResultsResolution> {
+  await requireAdminSession();
+
   const [election] = await db
     .select({
       status: elections.status,

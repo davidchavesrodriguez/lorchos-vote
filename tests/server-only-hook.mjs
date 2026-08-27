@@ -24,6 +24,16 @@ registerHooks({
       };
     }
 
+    if (
+      context.parentURL?.endsWith('/src/lib/admin-session.ts') &&
+      (specifier === '@/lib/auth' || specifier === 'next/headers')
+    ) {
+      return {
+        shortCircuit: true,
+        url: new URL('./admin-auth-stub.mjs', import.meta.url).href,
+      };
+    }
+
     if (specifier.startsWith('@/')) {
       const resolvedUrl = resolveTypeScriptModule(
         new URL(`../src/${specifier.slice(2)}`, import.meta.url),

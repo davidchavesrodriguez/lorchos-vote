@@ -1,11 +1,19 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { after, test } from 'node:test';
+import { after, beforeEach, test } from 'node:test';
 
 import dotenv from 'dotenv';
 import { inArray, sql } from 'drizzle-orm';
 
 dotenv.config({ path: '.env.local', quiet: true });
+
+const AUTHORIZED_ADMIN_EMAIL = 'authorized-admin@example.test';
+process.env.ADMIN_EMAILS = AUTHORIZED_ADMIN_EMAIL;
+
+const {
+  getAdminTestSessionChecks,
+  setAdminTestSession,
+} = await import('./admin-auth-stub.mjs');
 
 const { db } = await import('../src/db/index');
 const {
@@ -21,6 +29,12 @@ const { getAdminElectionResults } = await import(
 
 const testRunLabel = `admin-results-test-${Date.now()}`;
 const electionIds: string[] = [];
+
+beforeEach(() => {
+  setAdminTestSession({
+    user: { email: AUTHORIZED_ADMIN_EMAIL },
+  });
+});
 
 async function createElection(
   overrides: Partial<typeof elections.$inferInsert> = {},
@@ -133,6 +147,55 @@ after(async () => {
   }
 
   await db.$client.end({ timeout: 5 });
+});
+
+test('an unauthenticated request cannot start an election results query', async () => {
+  setAdminTestSession(null);
+  const originalSelectDescriptor = Object.getOwnPropertyDescriptor(db, 'select');
+  let electionQueryCount = 0;
+
+  Object.defineProperty(db, 'select', {
+    configurable: true,
+    value: () => {
+      electionQueryCount += 1;
+      throw new Error('Election query started before authorization');
+    },
+  });
+
+  try {
+    await assert.rejects(
+      getAdminElectionResults(randomUUID()),
+      (error: unknown) =>
+        error instanceof Error &&
+        'digest' in error &&
+        String(error.digest).includes('/admin/login'),
+    );
+  } finally {
+    if (originalSelectDescriptor) {
+      Object.defineProperty(db, 'select', originalSelectDescriptor);
+    } else {
+      Reflect.deleteProperty(db, 'select');
+    }
+  }
+
+  assert.equal(getAdminTestSessionChecks(), 1);
+  assert.equal(electionQueryCount, 0);
+});
+
+test('a valid session for a non-allowlisted email cannot obtain results', async () => {
+  setAdminTestSession({
+    user: { email: 'former-admin@example.test' },
+  });
+
+  await assert.rejects(
+    getAdminElectionResults(randomUUID()),
+    (error: unknown) =>
+      error instanceof Error &&
+      'digest' in error &&
+      String(error.digest).includes('/admin/login'),
+  );
+
+  assert.equal(getAdminTestSessionChecks(), 1);
 });
 
 test('a missing election is reported without a tally', async () => {

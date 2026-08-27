@@ -4,6 +4,7 @@ import Link from 'next/link';
 
 import { db } from '@/db';
 import { elections } from '@/db/schema';
+import { requireAdminSession } from '@/lib/admin-session';
 import { getElectionStatusLabel } from '@/lib/election-status';
 import styles from '../admin.module.css';
 import { LocalDateTime } from './local-date-time';
@@ -13,6 +14,8 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminPage() {
+  await requireAdminSession();
+
   const electionList = await db
     .select({
       id: elections.id,
