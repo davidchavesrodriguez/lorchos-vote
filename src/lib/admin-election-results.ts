@@ -17,6 +17,11 @@ import { requireAdminSession } from '@/lib/admin-session';
 
 type TurnoutStatus = 'notRequired' | 'met' | 'notMet';
 
+export type ElectionResultIntegrityIssue =
+  | 'ballot-voter-count-mismatch'
+  | 'invalid-ballot-cardinality'
+  | 'invalid-ballot-candidate';
+
 type AdminElectionResultsSuccess = {
   type: 'success';
   numberOfWinners: number;
@@ -28,6 +33,7 @@ type AdminElectionResultsSuccess = {
   turnoutPercentage: number;
   ballotCount: number;
   integrityStatus: 'consistent' | 'inconsistent';
+  integrityIssues: ElectionResultIntegrityIssue[];
   canAssignSeats: boolean;
   rows: ElectionResultRow[];
   tie: {
@@ -51,6 +57,8 @@ export async function getAdminElectionResults(
     .select({
       status: elections.status,
       numberOfWinners: elections.numberOfWinners,
+      minSelections: elections.minSelections,
+      maxSelections: elections.maxSelections,
       minimumTurnout: elections.minimumTurnout,
     })
     .from(elections)
@@ -89,39 +97,33 @@ export async function getAdminElectionResults(
           ),
         ),
       db
-        .select({ id: ballots.id })
+        .select({
+          id: ballots.id,
+          electionId: ballots.electionId,
+        })
         .from(ballots)
         .where(eq(ballots.electionId, electionId)),
       db
-        .select({ candidateId: ballotChoices.candidateParticipantId })
+        .select({
+          ballotId: ballotChoices.ballotId,
+          choiceElectionId: ballotChoices.electionId,
+          candidateId: ballotChoices.candidateParticipantId,
+          candidateElectionId: electionParticipants.electionId,
+          candidateCanBeCandidate: electionParticipants.canBeCandidate,
+        })
         .from(ballotChoices)
         .innerJoin(
           ballots,
-          and(
-            eq(ballotChoices.ballotId, ballots.id),
-            eq(ballotChoices.electionId, ballots.electionId),
-          ),
+          eq(ballotChoices.ballotId, ballots.id),
         )
-        .innerJoin(
+        .leftJoin(
           electionParticipants,
-          and(
-            eq(
-              ballotChoices.candidateParticipantId,
-              electionParticipants.id,
-            ),
-            eq(
-              ballotChoices.electionId,
-              electionParticipants.electionId,
-            ),
+          eq(
+            ballotChoices.candidateParticipantId,
+            electionParticipants.id,
           ),
         )
-        .where(
-          and(
-            eq(ballots.electionId, electionId),
-            eq(ballotChoices.electionId, electionId),
-            eq(electionParticipants.canBeCandidate, true),
-          ),
-        ),
+        .where(eq(ballots.electionId, electionId)),
     ]);
   const voterCount = voterRows.length;
   const votedCount = voterRows.filter((voter) => voter.hasVoted).length;
@@ -132,14 +134,63 @@ export async function getAdminElectionResults(
       : votedCount >= election.minimumTurnout
         ? 'met'
         : 'notMet';
+  const integrityIssues = new Set<ElectionResultIntegrityIssue>();
+
+  if (ballotCount !== votedCount) {
+    integrityIssues.add('ballot-voter-count-mismatch');
+  }
+
+  const choicesByBallotId = new Map(
+    ballotRows.map((ballot) => [ballot.id, [] as typeof choiceRows]),
+  );
+
+  for (const choice of choiceRows) {
+    choicesByBallotId.get(choice.ballotId)?.push(choice);
+  }
+
+  for (const ballot of ballotRows) {
+    const ballotChoiceRows = choicesByBallotId.get(ballot.id) ?? [];
+
+    if (
+      ballotChoiceRows.length < election.minSelections ||
+      ballotChoiceRows.length > election.maxSelections
+    ) {
+      integrityIssues.add('invalid-ballot-cardinality');
+    }
+
+    const seenCandidateIds = new Set<string>();
+
+    for (const choice of ballotChoiceRows) {
+      if (
+        seenCandidateIds.has(choice.candidateId) ||
+        choice.choiceElectionId !== ballot.electionId ||
+        choice.candidateElectionId !== ballot.electionId ||
+        choice.candidateCanBeCandidate !== true
+      ) {
+        integrityIssues.add('invalid-ballot-candidate');
+      }
+
+      seenCandidateIds.add(choice.candidateId);
+    }
+  }
+
+  const integrityIssueList = [...integrityIssues];
   const integrityStatus =
-    ballotCount === votedCount ? 'consistent' : 'inconsistent';
+    integrityIssueList.length === 0 ? 'consistent' : 'inconsistent';
   const canAssignSeats =
     turnoutStatus !== 'notMet' && integrityStatus === 'consistent';
+  const validChoiceCandidateIds = choiceRows
+    .filter(
+      (choice) =>
+        choice.choiceElectionId === electionId &&
+        choice.candidateElectionId === electionId &&
+        choice.candidateCanBeCandidate === true,
+    )
+    .map((choice) => choice.candidateId);
   const calculation = calculateElectionResults({
     numberOfWinners: election.numberOfWinners,
     candidates: candidateRows,
-    choiceCandidateIds: choiceRows.map((choice) => choice.candidateId),
+    choiceCandidateIds: validChoiceCandidateIds,
   });
 
   return {
@@ -154,6 +205,7 @@ export async function getAdminElectionResults(
       voterCount === 0 ? 0 : Math.round((votedCount / voterCount) * 100),
     ballotCount,
     integrityStatus,
+    integrityIssues: integrityIssueList,
     canAssignSeats,
     rows: calculation.rows.map((row) => ({
       ...row,

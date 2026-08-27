@@ -392,8 +392,9 @@ export default async function ElectionDetailPage({
 
           {resultResolution.integrityStatus === 'inconsistent' ? (
             <p className={styles.resultWarning} role='alert'>
-              Detectouse unha inconsistencia entre a participación e as
-              papeletas rexistradas.
+              Detectouse unha inconsistencia nos datos da votación. O reconto
+              móstrase para revisión, pero non se asignan prazas
+              automaticamente.
             </p>
           ) : null}
 

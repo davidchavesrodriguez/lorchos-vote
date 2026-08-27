@@ -78,31 +78,35 @@ export function calculateElectionResults({
   }
 
   const safeWinnerCount = Math.max(0, Math.trunc(numberOfWinners));
+  const candidatesWithVotes = rowsWithRank.filter((row) => row.votes > 0);
   const defaultTie = {
     affectsSeats: false,
     tiedCandidateIds: [],
     seatsAvailableAmongTie: 0,
   };
 
-  if (safeWinnerCount === 0 || rowsWithRank.length === 0) {
+  if (safeWinnerCount === 0 || candidatesWithVotes.length === 0) {
     return {
       rows: rowsWithRank.map((row) => ({ ...row, placement: 'none' })),
       tie: defaultTie,
     };
   }
 
-  if (safeWinnerCount >= rowsWithRank.length) {
+  if (safeWinnerCount >= candidatesWithVotes.length) {
     return {
-      rows: rowsWithRank.map((row) => ({ ...row, placement: 'elected' })),
+      rows: rowsWithRank.map((row) => ({
+        ...row,
+        placement: row.votes > 0 ? 'elected' : 'none',
+      })),
       tie: defaultTie,
     };
   }
 
-  const cutoffVotes = rowsWithRank[safeWinnerCount - 1]!.votes;
-  const guaranteedCount = rowsWithRank.filter(
+  const cutoffVotes = candidatesWithVotes[safeWinnerCount - 1]!.votes;
+  const guaranteedCount = candidatesWithVotes.filter(
     (candidate) => candidate.votes > cutoffVotes,
   ).length;
-  const cutoffCandidates = rowsWithRank.filter(
+  const cutoffCandidates = candidatesWithVotes.filter(
     (candidate) => candidate.votes === cutoffVotes,
   );
   const remainingSeats = safeWinnerCount - guaranteedCount;

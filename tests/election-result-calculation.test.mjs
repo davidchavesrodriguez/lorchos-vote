@@ -151,17 +151,17 @@ test('a multiple tie can affect several remaining seats', () => {
   assert.deepEqual(result.tie.tiedCandidateIds, ['dalton', 'jose', 'manu']);
 });
 
-test('W greater than or equal to the candidate count elects all without a cutoff tie', () => {
+test('W greater than or equal to the candidate count does not elect a zero-vote candidate', () => {
   const result = calculateElectionResults({
     numberOfWinners: 3,
     candidates: candidates.slice(0, 2),
-    choiceCandidateIds: [],
+    choiceCandidateIds: ['hugo'],
   });
 
   assert.equal(result.tie.affectsSeats, false);
   assert.deepEqual(
     result.rows.map(({ placement }) => placement),
-    ['elected', 'elected'],
+    ['elected', 'none'],
   );
 });
 
@@ -179,5 +179,71 @@ test('zero ballots produces a zero-vote result for every candidate', () => {
   assert.deepEqual(
     result.rows.map(({ rank }) => rank),
     [1, 1, 1],
+  );
+  assert.deepEqual(
+    result.rows.map(({ placement }) => placement),
+    ['none', 'none', 'none'],
+  );
+});
+
+test('W=3 with 5, 3, 0, 0 assigns only the two supported seats', () => {
+  const result = calculateElectionResults({
+    numberOfWinners: 3,
+    candidates: candidates.slice(0, 4),
+    choiceCandidateIds: choices({ hugo: 5, dalton: 3 }),
+  });
+
+  assert.equal(result.tie.affectsSeats, false);
+  assert.deepEqual(
+    result.rows.map(({ votes, placement }) => [votes, placement]),
+    [
+      [5, 'elected'],
+      [3, 'elected'],
+      [0, 'none'],
+      [0, 'none'],
+    ],
+  );
+});
+
+test('W=3 with 9, 8, 0, 0 does not create a cutoff tie at zero', () => {
+  const result = calculateElectionResults({
+    numberOfWinners: 3,
+    candidates: candidates.slice(0, 4),
+    choiceCandidateIds: choices({ hugo: 9, dalton: 8 }),
+  });
+
+  assert.equal(result.tie.affectsSeats, false);
+  assert.deepEqual(
+    result.rows.map(({ placement }) => placement),
+    ['elected', 'elected', 'none', 'none'],
+  );
+});
+
+test('W=3 with 9, 8, 8, 0 assigns all three supported seats', () => {
+  const result = calculateElectionResults({
+    numberOfWinners: 3,
+    candidates: candidates.slice(0, 4),
+    choiceCandidateIds: choices({ hugo: 9, dalton: 8, manu: 8 }),
+  });
+
+  assert.equal(result.tie.affectsSeats, false);
+  assert.deepEqual(
+    result.rows.map(({ placement }) => placement),
+    ['elected', 'elected', 'elected', 'none'],
+  );
+});
+
+test('W=3 with four candidates on one vote keeps a real cutoff tie', () => {
+  const result = calculateElectionResults({
+    numberOfWinners: 3,
+    candidates: candidates.slice(0, 4),
+    choiceCandidateIds: choices({ hugo: 1, dalton: 1, manu: 1, jose: 1 }),
+  });
+
+  assert.equal(result.tie.affectsSeats, true);
+  assert.equal(result.tie.seatsAvailableAmongTie, 3);
+  assert.deepEqual(
+    result.rows.map(({ placement }) => placement),
+    ['tied', 'tied', 'tied', 'tied'],
   );
 });

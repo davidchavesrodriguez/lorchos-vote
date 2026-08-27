@@ -100,6 +100,8 @@ async function createAnonymousBallot(
       })),
     );
   }
+
+  return ballot.id;
 }
 
 async function createVotedParticipants(electionId: string, count: number) {
@@ -242,6 +244,19 @@ test('CLOSED results include every candidate, including zero votes', async () =>
     result.rows.find(({ candidateId }) => candidateId === zeroVoteId)?.votes,
     0,
   );
+  assert.equal(result.integrityStatus, 'consistent');
+  assert.deepEqual(result.integrityIssues, []);
+  assert.equal(result.canAssignSeats, true);
+  assert.equal(
+    result.rows.find(({ candidateId }) => candidateId === selectedId)
+      ?.placement,
+    'elected',
+  );
+  assert.equal(
+    result.rows.find(({ candidateId }) => candidateId === zeroVoteId)
+      ?.placement,
+    'none',
+  );
 });
 
 test('votes come from BallotChoices and other elections cannot contaminate them', async () => {
@@ -280,6 +295,7 @@ test('votes come from BallotChoices and other elections cannot contaminate them'
     false,
   );
   assert.equal(result.ballotCount, 2);
+  assert.equal(result.integrityStatus, 'consistent');
 });
 
 test('ballot, voter, voted and pending counts remain independent', async () => {
@@ -292,7 +308,7 @@ test('ballot, voter, voted and pending counts remain independent', async () => {
     hasVoted: false,
   });
   await createAnonymousBallot(electionId, [candidateId]);
-  await createAnonymousBallot(electionId, []);
+  await createAnonymousBallot(electionId, [candidateId]);
 
   const result = requireSuccess(await getAdminElectionResults(electionId));
 
@@ -302,6 +318,7 @@ test('ballot, voter, voted and pending counts remain independent', async () => {
   assert.equal(result.pendingCount, 1);
   assert.equal(result.turnoutPercentage, 67);
   assert.equal(result.integrityStatus, 'consistent');
+  assert.deepEqual(result.integrityIssues, []);
 });
 
 test('null minimumTurnout has an explicit not-required state', async () => {
@@ -318,7 +335,7 @@ test('an achieved absolute minimumTurnout permits seat assignment', async () => 
   const candidateId = await createParticipant(electionId, 'Candidata');
   await createVotedParticipants(electionId, 2);
   await createAnonymousBallot(electionId, [candidateId]);
-  await createAnonymousBallot(electionId, []);
+  await createAnonymousBallot(electionId, [candidateId]);
 
   const result = requireSuccess(await getAdminElectionResults(electionId));
 
@@ -332,18 +349,21 @@ test('an unmet minimumTurnout keeps the tally but marks no seats', async () => {
   const candidateId = await createParticipant(electionId, 'Candidata');
   await createVotedParticipants(electionId, 2);
   await createAnonymousBallot(electionId, [candidateId]);
-  await createAnonymousBallot(electionId, []);
+  await createAnonymousBallot(electionId, [candidateId]);
 
   const result = requireSuccess(await getAdminElectionResults(electionId));
 
   assert.equal(result.turnoutStatus, 'notMet');
   assert.equal(result.canAssignSeats, false);
-  assert.equal(result.rows[0]?.votes, 1);
+  assert.equal(result.rows[0]?.votes, 2);
   assert.equal(result.rows.every(({ placement }) => placement === 'none'), true);
 });
 
 test('a cutoff tie does not choose a candidate arbitrarily', async () => {
-  const electionId = await createElection({ numberOfWinners: 3 });
+  const electionId = await createElection({
+    numberOfWinners: 3,
+    maxSelections: 4,
+  });
   const candidateIds = await Promise.all([
     createParticipant(electionId, 'Hugo'),
     createParticipant(electionId, 'Dalton'),
@@ -377,7 +397,10 @@ test('a cutoff tie does not choose a candidate arbitrarily', async () => {
 });
 
 test('a non-conflicting tie allows every available seat', async () => {
-  const electionId = await createElection({ numberOfWinners: 3 });
+  const electionId = await createElection({
+    numberOfWinners: 3,
+    maxSelections: 4,
+  });
   const candidateIds = await Promise.all([
     createParticipant(electionId, 'Hugo'),
     createParticipant(electionId, 'Dalton'),
@@ -401,6 +424,126 @@ test('a non-conflicting tie allows every available seat', async () => {
   );
 });
 
+test('a ballot below minSelections is inconsistent even when ballot and voter counts match', async () => {
+  const electionId = await createElection({
+    minSelections: 2,
+    maxSelections: 3,
+  });
+  const candidateId = await createParticipant(electionId, 'Candidata');
+  await createVotedParticipants(electionId, 1);
+  await createAnonymousBallot(electionId, [candidateId]);
+
+  const result = requireSuccess(await getAdminElectionResults(electionId));
+
+  assert.equal(result.ballotCount, 1);
+  assert.equal(result.votedCount, 1);
+  assert.equal(result.integrityStatus, 'inconsistent');
+  assert.deepEqual(result.integrityIssues, [
+    'invalid-ballot-cardinality',
+  ]);
+  assert.equal(result.canAssignSeats, false);
+  assert.equal(result.rows[0]?.votes, 1);
+  assert.equal(result.rows.every(({ placement }) => placement === 'none'), true);
+});
+
+test('a ballot above maxSelections is inconsistent', async () => {
+  const electionId = await createElection({
+    minSelections: 1,
+    maxSelections: 1,
+  });
+  const candidateIds = await Promise.all([
+    createParticipant(electionId, 'Candidata primeira'),
+    createParticipant(electionId, 'Candidata segunda'),
+  ]);
+  await createVotedParticipants(electionId, 1);
+  await createAnonymousBallot(electionId, candidateIds);
+
+  const result = requireSuccess(await getAdminElectionResults(electionId));
+
+  assert.equal(result.integrityStatus, 'inconsistent');
+  assert.deepEqual(result.integrityIssues, [
+    'invalid-ballot-cardinality',
+  ]);
+  assert.equal(result.canAssignSeats, false);
+  assert.deepEqual(
+    result.rows.map(({ votes }) => votes),
+    [1, 1],
+  );
+  assert.equal(result.rows.every(({ placement }) => placement === 'none'), true);
+});
+
+test('a choice for an ineligible participant is detected without hiding the valid tally', async () => {
+  const electionId = await createElection({
+    minSelections: 2,
+    maxSelections: 2,
+  });
+  const validCandidateId = await createParticipant(
+    electionId,
+    'Candidata válida',
+  );
+  const ineligibleCandidateId = await createParticipant(
+    electionId,
+    'Participante non candidata',
+    { canBeCandidate: false },
+  );
+  await createVotedParticipants(electionId, 1);
+  await createAnonymousBallot(electionId, [
+    validCandidateId,
+    ineligibleCandidateId,
+  ]);
+
+  const result = requireSuccess(await getAdminElectionResults(electionId));
+
+  assert.equal(result.integrityStatus, 'inconsistent');
+  assert.deepEqual(result.integrityIssues, [
+    'invalid-ballot-candidate',
+  ]);
+  assert.equal(result.canAssignSeats, false);
+  assert.equal(result.rows.length, 1);
+  assert.equal(result.rows[0]?.candidateId, validCandidateId);
+  assert.equal(result.rows[0]?.votes, 1);
+  assert.equal(result.rows[0]?.placement, 'none');
+});
+
+test('the database rejects a duplicate candidate within one ballot', async () => {
+  const electionId = await createElection();
+  const candidateId = await createParticipant(electionId, 'Candidata');
+  const ballotId = await createAnonymousBallot(electionId, [candidateId]);
+
+  await assert.rejects(
+    db.insert(ballotChoices).values({
+      ballotId,
+      electionId,
+      candidateParticipantId: candidateId,
+    }),
+  );
+});
+
+test('the database rejects ballot choices that cross election boundaries', async () => {
+  const ballotElectionId = await createElection();
+  const candidateElectionId = await createElection();
+  const ballotId = await createAnonymousBallot(ballotElectionId, []);
+  const otherCandidateId = await createParticipant(
+    candidateElectionId,
+    'Candidata doutra elección',
+  );
+
+  await assert.rejects(
+    db.insert(ballotChoices).values({
+      ballotId,
+      electionId: ballotElectionId,
+      candidateParticipantId: otherCandidateId,
+    }),
+  );
+  await assert.rejects(
+    db.insert(ballotChoices).values({
+      ballotId,
+      electionId: candidateElectionId,
+      candidateParticipantId: otherCandidateId,
+    }),
+  );
+});
+
 test('a ballotCount and votedCount mismatch suppresses every seat', async () => {
   const electionId = await createElection();
   const candidateId = await createParticipant(electionId, 'Candidata');
@@ -415,6 +558,9 @@ test('a ballotCount and votedCount mismatch suppresses every seat', async () => 
   assert.equal(result.ballotCount, 0);
   assert.equal(result.votedCount, 1);
   assert.equal(result.integrityStatus, 'inconsistent');
+  assert.deepEqual(result.integrityIssues, [
+    'ballot-voter-count-mismatch',
+  ]);
   assert.equal(result.canAssignSeats, false);
   assert.equal(
     result.rows.find(({ candidateId: id }) => id === candidateId)?.placement,
