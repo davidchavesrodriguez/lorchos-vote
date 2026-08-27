@@ -3,6 +3,7 @@ import 'server-only';
 import { betterAuth } from 'better-auth';
 
 import { isAdminEmail } from '@/lib/admin-allowlist';
+import { getAuthOriginConfiguration } from '@/lib/auth-origins';
 
 const ADMIN_SESSION_MAX_AGE = 12 * 60 * 60;
 
@@ -16,8 +17,11 @@ function requireEnvironmentVariable(name: string): string {
   return value;
 }
 
+const { baseURL, trustedOrigins } = getAuthOriginConfiguration();
+
 export const auth = betterAuth({
-  baseURL: requireEnvironmentVariable('BETTER_AUTH_URL'),
+  baseURL,
+  trustedOrigins,
   secret: requireEnvironmentVariable('BETTER_AUTH_SECRET'),
   socialProviders: {
     google: {
