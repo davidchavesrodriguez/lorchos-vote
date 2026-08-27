@@ -24,5 +24,9 @@ function getAppBaseUrl(): string {
 }
 
 export function buildVotingUrl(token: string): string {
-  return `${getAppBaseUrl()}/v/${encodeURIComponent(token)}`;
+  return `${getAppBaseUrl()}/v#${token}`;
+}
+
+export function getVotingAppOrigin(): string {
+  return new URL(getAppBaseUrl()).origin;
 }

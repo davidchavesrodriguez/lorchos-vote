@@ -86,9 +86,12 @@ async function readCredentials(participantIds: string[]) {
 }
 
 function readTokenFromVotingUrl(votingUrl: string): string {
-  const token = new URL(votingUrl).pathname.split('/').at(-1);
+  const url = new URL(votingUrl);
+  const token = url.hash.slice(1);
 
   assert.ok(token);
+  assert.equal(url.pathname, '/v');
+  assert.equal(url.search, '');
   return token;
 }
 
@@ -142,7 +145,7 @@ test('bulk generation includes only eligible voters and stores only hashes', asy
   assert.equal(credentials[0]?.tokenHash === token, false);
   assert.equal(credentials[0]?.tokenHash === hashVotingToken(token), true);
   assert.equal(
-    result.generatedLinks[0]?.votingUrl.endsWith(`/v/${token}`),
+    result.generatedLinks[0]?.votingUrl.endsWith(`/v#${token}`),
     true,
   );
   assert.equal('token' in credentials[0]!, false);

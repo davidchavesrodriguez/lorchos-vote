@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 
-import { LocalDateTime } from '../local-date-time';
-import styles from '../vote.module.css';
+import { LocalDateTime } from './local-date-time';
+import styles from './vote.module.css';
 import { submitVote, type SubmitVoteResult } from './actions';
 
 type Candidate = {
@@ -13,7 +13,7 @@ type Candidate = {
 };
 
 type VoteFlowProps = {
-  token: string;
+  sessionId: string;
   electionTitle: string;
   groupLabel: string;
   voterDisplayName: string;
@@ -41,7 +41,7 @@ const SUBMISSION_ERRORS: Record<
 };
 
 export function VoteFlow({
-  token,
+  sessionId,
   electionTitle,
   groupLabel,
   voterDisplayName,
@@ -110,7 +110,7 @@ export function VoteFlow({
 
     setSubmissionError(null);
     startTransition(async () => {
-      const result = await submitVote(token, selectedIds);
+      const result = await submitVote(sessionId, selectedIds);
 
       if (result.type === 'success') {
         setSelectedIds([]);

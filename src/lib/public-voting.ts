@@ -15,7 +15,6 @@ import {
   orderCandidatesForCredential,
   type PublicCandidate,
 } from '@/lib/public-voting-candidates';
-import { hashVotingToken } from '@/lib/voting-token';
 
 type ActiveVotingContext = {
   electionTitle: string;
@@ -50,10 +49,9 @@ export type PublicVoteSubmissionResult =
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-export async function resolvePublicVotingToken(
-  token: string,
+export async function resolvePublicVotingCredential(
+  credentialId: string,
 ): Promise<PublicVotingResolution> {
-  const tokenHash = hashVotingToken(token);
   const [credential] = await db
     .select({
       credentialId: votingCredentials.id,
@@ -81,7 +79,7 @@ export async function resolvePublicVotingToken(
       elections,
       eq(electionParticipants.electionId, elections.id),
     )
-    .where(eq(votingCredentials.tokenHash, tokenHash))
+    .where(eq(votingCredentials.id, credentialId))
     .limit(1);
 
   if (!credential) {
@@ -162,14 +160,13 @@ export async function resolvePublicVotingToken(
 }
 
 export async function castPublicVote(
-  token: unknown,
+  credentialId: unknown,
   candidateParticipantIds: unknown,
 ): Promise<PublicVoteSubmissionResult> {
-  if (typeof token !== 'string') {
+  if (typeof credentialId !== 'string' || !UUID_PATTERN.test(credentialId)) {
     return { type: 'invalidLink' };
   }
 
-  const tokenHash = hashVotingToken(token);
   const [initialCredential] = await db
     .select({ electionId: electionParticipants.electionId })
     .from(votingCredentials)
@@ -177,7 +174,7 @@ export async function castPublicVote(
       electionParticipants,
       eq(votingCredentials.participantId, electionParticipants.id),
     )
-    .where(eq(votingCredentials.tokenHash, tokenHash))
+    .where(eq(votingCredentials.id, credentialId))
     .limit(1);
 
   if (!initialCredential) {
@@ -209,7 +206,7 @@ export async function castPublicVote(
         status: votingCredentials.status,
       })
       .from(votingCredentials)
-      .where(eq(votingCredentials.tokenHash, tokenHash))
+      .where(eq(votingCredentials.id, credentialId))
       .for('update');
 
     if (!credential) {

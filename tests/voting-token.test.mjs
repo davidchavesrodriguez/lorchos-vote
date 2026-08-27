@@ -60,13 +60,22 @@ test('distinct voting tokens produce distinct hashes', () => {
   );
 });
 
-test('voting URLs normalize APP_URL and append the secret path', () => {
+test('voting URLs normalize APP_URL and put the token in the fragment', () => {
   process.env.APP_URL = '  https://example.test/base/?ignored=yes#fragment  ';
 
   assert.equal(
     buildVotingUrl('test-token'),
-    'https://example.test/base/v/test-token',
+    'https://example.test/base/v#test-token',
   );
+});
+
+test('the voting token fragment is absent from path and query', () => {
+  process.env.APP_URL = 'https://example.test';
+  const votingUrl = new URL(buildVotingUrl('test-token'));
+
+  assert.equal(votingUrl.pathname, '/v');
+  assert.equal(votingUrl.search, '');
+  assert.equal(votingUrl.hash, '#test-token');
 });
 
 test('voting URL construction requires APP_URL', () => {
