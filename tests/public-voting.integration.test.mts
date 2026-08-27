@@ -2,10 +2,10 @@ import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
 import { randomUUID } from 'node:crypto';
 
-import dotenv from 'dotenv';
 import { eq, inArray, sql } from 'drizzle-orm';
 
-dotenv.config({ path: '.env.local', quiet: true });
+import './test-database-bootstrap.mjs';
+
 process.env.APP_URL = 'http://localhost:3000';
 process.env.VOTING_SESSION_SECRET =
   'integration-test-only-independent-secret-with-sufficient-length';

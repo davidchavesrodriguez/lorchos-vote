@@ -16,5 +16,23 @@ services:
       retries: 5
       start_period: 10s
 
+  postgres-test:
+    image: postgres:18
+    environment:
+      POSTGRES_DB: lorchos_vote_test
+      POSTGRES_USER: lorchos
+      POSTGRES_PASSWORD: lorchos_test
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - postgres_test_data:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U lorchos -d lorchos_vote_test']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
 volumes:
   postgres_data:
+  postgres_test_data:

@@ -2,10 +2,9 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { after, beforeEach, test } from 'node:test';
 
-import dotenv from 'dotenv';
 import { inArray, sql } from 'drizzle-orm';
 
-dotenv.config({ path: '.env.local', quiet: true });
+import './test-database-bootstrap.mjs';
 
 const AUTHORIZED_ADMIN_EMAIL = 'authorized-admin@example.test';
 process.env.ADMIN_EMAILS = AUTHORIZED_ADMIN_EMAIL;

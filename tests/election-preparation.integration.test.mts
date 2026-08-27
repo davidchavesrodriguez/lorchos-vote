@@ -1,10 +1,9 @@
 import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
 
-import dotenv from 'dotenv';
 import { asc, eq, inArray } from 'drizzle-orm';
 
-dotenv.config({ path: '.env.local', quiet: true });
+import './test-database-bootstrap.mjs';
 
 const { db } = await import('../src/db/index');
 const {
