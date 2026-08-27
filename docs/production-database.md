@@ -33,9 +33,8 @@ analizar a súa semántica.
 - `db:migrate` non acepta `DATABASE_URL` nin `TEST_DATABASE_URL` como fallback e
   aplica unicamente as migracións versionadas de `drizzle/`.
 - `db:generate` só xera migracións; non as aplica.
-- Os futuros `pg_dump` e `pg_restore` usarán a conexión directa de
-  `DATABASE_MIGRATION_URL`. O procedemento de backup e restauración definirase
-  por separado.
+- `pg_dump` e `pg_restore` usan conexións directas. O procedemento probado está
+  no [runbook de migración, backup e restauración](database-backup-restore.md).
 - `TEST_DATABASE_URL` é só para tests, debe conservar o sufixo `_test` e nunca
   pode apuntar a produción.
 - As conexións remotas deben esixir TLS. Non se gardan certificados do provedor
