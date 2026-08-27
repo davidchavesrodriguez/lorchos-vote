@@ -7,8 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "npm run test:database-guard && npm run test:database:check && npm run test:readiness && npm run test:preparation && npm run test:tokens && npm run test:voting-session && npm run test:credentials && npm run test:lifecycle && npm run test:public-voting-order && npm run test:public-voting-headers && npm run test:public-voting-transport && npm run test:public-voting && npm run test:results",
+    "test": "npm run test:database-guard && npm run test:club-time && npm run test:database:check && npm run test:readiness && npm run test:preparation && npm run test:tokens && npm run test:voting-session && npm run test:credentials && npm run test:lifecycle && npm run test:public-voting-order && npm run test:public-voting-headers && npm run test:public-voting-transport && npm run test:public-voting && npm run test:results",
     "test:database-guard": "node --test tests/test-database.test.mjs",
+    "test:club-time": "node --experimental-strip-types --import ./tests/server-only-hook.mjs --test tests/club-date-time.test.mjs",
     "test:database:check": "node --import ./tests/test-database-bootstrap.mjs tests/check-test-database-schema.mjs",
     "test:readiness": "node --experimental-strip-types --import ./tests/server-only-hook.mjs --test tests/election-readiness.test.mjs",
     "test:preparation": "node --experimental-strip-types --import ./tests/test-database-bootstrap.mjs --import ./tests/server-only-hook.mjs --test --test-concurrency=1 tests/election-preparation.integration.test.mts",
@@ -32,6 +33,7 @@
   "dependencies": {
     "@fontsource/cormorant-garamond": "^5.3.0",
     "@fontsource/montserrat": "^5.3.0",
+    "@js-temporal/polyfill": "^0.5.1",
     "better-auth": "^1.7.1",
     "drizzle-orm": "^0.45.2",
     "next": "16.3.1",

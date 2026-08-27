@@ -19,28 +19,6 @@ const initialState: ElectionLifecycleActionState = {};
 const CONFIRMATION_MESSAGE =
   'Ao abrir a votación, as ligazóns activas poderán utilizarse para votar ata a data límite indicada.';
 
-async function submitOpening(
-  previousState: ElectionLifecycleActionState,
-  formData: FormData,
-): Promise<ElectionLifecycleActionState> {
-  const localValue = formData.get('closesAtLocal');
-
-  if (typeof localValue !== 'string' || localValue === '') {
-    return { formError: 'Indica unha data límite.' };
-  }
-
-  const closesAt = new Date(localValue);
-
-  if (Number.isNaN(closesAt.getTime())) {
-    return { formError: 'A data límite non é válida.' };
-  }
-
-  formData.delete('closesAtLocal');
-  formData.set('closesAt', closesAt.toISOString());
-
-  return openElection(previousState, formData);
-}
-
 export function OpenElectionForm({
   electionId,
   voterCount,
@@ -48,7 +26,7 @@ export function OpenElectionForm({
 }: OpenElectionFormProps) {
   const [localValue, setLocalValue] = useState('');
   const [state, formAction, isPending] = useActionState(
-    submitOpening,
+    openElection,
     initialState,
   );
   const missingCredentialCount = voterCount - activeCredentialCount;
@@ -94,10 +72,15 @@ export function OpenElectionForm({
             value={localValue}
             onChange={(event) => setLocalValue(event.target.value)}
             required
-            aria-describedby='closing-date-hint opening-consequence'
+            aria-describedby={
+              state.formError
+                ? 'closing-date-hint opening-consequence opening-error'
+                : 'closing-date-hint opening-consequence'
+            }
+            aria-invalid={Boolean(state.formError) || undefined}
           />
           <p id='closing-date-hint' className={styles.hint}>
-            A hora interpretarase segundo o teu dispositivo.
+            A data e a hora interprétanse sempre en hora de Galicia.
           </p>
         </div>
         <p id='opening-consequence'>{CONFIRMATION_MESSAGE}</p>
@@ -113,7 +96,7 @@ export function OpenElectionForm({
         </button>
       </form>
       {state.formError ? (
-        <p className={styles.inlineError} role='alert'>
+        <p id='opening-error' className={styles.inlineError} role='alert'>
           {state.formError}
         </p>
       ) : null}

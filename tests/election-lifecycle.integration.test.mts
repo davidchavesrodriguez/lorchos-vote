@@ -17,6 +17,9 @@ const {
   transitionOpenElectionToClosed,
   transitionReadyElectionToOpen,
 } = await import('../src/lib/election-lifecycle');
+const { parseClubDateTime } = await import(
+  '../src/lib/club-date-time.server'
+);
 const { regenerateVotingCredential } = await import(
   '../src/lib/voting-credentials'
 );
@@ -116,7 +119,7 @@ async function readCredentials(electionId: string) {
     .orderBy(asc(votingCredentials.createdAt), asc(votingCredentials.id));
 }
 
-async function openElection(electionId: string, closesAt: string) {
+async function openElection(electionId: string, closesAt: Date) {
   return db.transaction((tx) =>
     transitionReadyElectionToOpen(tx, electionId, closesAt),
   );
@@ -143,7 +146,7 @@ after(async () => {
 test('READY without voters cannot open', async () => {
   const electionId = await createElection();
   const before = await readElection(electionId);
-  const result = await openElection(electionId, futureInstant().toISOString());
+  const result = await openElection(electionId, futureInstant());
 
   assert.deepEqual(result, { type: 'noVoters' });
   assert.deepEqual(await readElection(electionId), before);
@@ -152,7 +155,7 @@ test('READY without voters cannot open', async () => {
 test('READY with a voter lacking an ACTIVE credential cannot open', async () => {
   const electionId = await createElection();
   await createParticipant(electionId, 'Votante sen ligazón');
-  const result = await openElection(electionId, futureInstant().toISOString());
+  const result = await openElection(electionId, futureInstant());
 
   assert.deepEqual(result, {
     type: 'missingActiveCredentials',
@@ -168,7 +171,7 @@ test('READY reports one missing credential among several voters', async () => {
   await createParticipant(electionId, 'Votante C');
   await createActiveCredential(firstParticipantId);
   await createActiveCredential(secondParticipantId);
-  const result = await openElection(electionId, futureInstant().toISOString());
+  const result = await openElection(electionId, futureInstant());
 
   assert.deepEqual(result, {
     type: 'missingActiveCredentials',
@@ -183,17 +186,36 @@ test('invalid and past closing instants are rejected without writes', async () =
   await createActiveCredential(participantId);
   const before = await readElection(electionId);
 
-  const localDateResult = await openElection(electionId, '2026-09-06T20:00');
-  const invalidResult = await openElection(electionId, 'non é unha data');
+  const invalidResult = await openElection(electionId, new Date(Number.NaN));
   const pastResult = await openElection(
     electionId,
-    new Date(Date.now() - 60_000).toISOString(),
+    new Date(Date.now() - 60_000),
   );
 
-  assert.deepEqual(localDateResult, { type: 'invalidClosesAt' });
   assert.deepEqual(invalidResult, { type: 'invalidClosesAt' });
   assert.deepEqual(pastResult, { type: 'closesAtNotFuture' });
   assert.deepEqual(await readElection(electionId), before);
+});
+
+test('opening persists the instant parsed from a Galicia civil time', async () => {
+  const electionId = await createElection();
+  const participantId = await createParticipant(electionId, 'Votante');
+  await createActiveCredential(participantId);
+  const parsedClosesAt = parseClubDateTime('2099-08-30T23:59');
+
+  assert.equal(parsedClosesAt.type, 'success');
+  if (parsedClosesAt.type !== 'success') {
+    assert.fail('Expected a valid Galicia civil time');
+  }
+
+  const result = await openElection(electionId, parsedClosesAt.instant);
+  const openedElection = await readElection(electionId);
+
+  assert.equal(result.type, 'success');
+  assert.equal(
+    openedElection.closesAt?.toISOString(),
+    '2099-08-30T21:59:00.000Z',
+  );
 });
 
 test('a voter marked as having voted prevents opening', async () => {
@@ -204,7 +226,7 @@ test('a voter marked as having voted prevents opening', async () => {
     { hasVoted: true },
   );
   await createActiveCredential(participantId);
-  const result = await openElection(electionId, futureInstant().toISOString());
+  const result = await openElection(electionId, futureInstant());
 
   assert.deepEqual(result, { type: 'votersHaveVoted', voterCount: 1 });
   assert.equal((await readElection(electionId)).status, 'READY');
@@ -223,7 +245,7 @@ test('valid opening changes only lifecycle fields and preserves related data', a
   const closesAt = futureInstant(45);
   const openingStartedAt = new Date();
 
-  const result = await openElection(electionId, closesAt.toISOString());
+  const result = await openElection(electionId, closesAt);
   const openingFinishedAt = new Date();
   const openedElection = await readElection(electionId);
 
@@ -256,7 +278,7 @@ test('valid opening changes only lifecycle fields and preserves related data', a
   const beforeSecondOpening = await readElection(electionId);
   const secondResult = await openElection(
     electionId,
-    futureInstant(60).toISOString(),
+    futureInstant(60),
   );
 
   assert.deepEqual(secondResult, { type: 'notReady' });
@@ -274,7 +296,7 @@ test('opening Server Action writes nothing without an admin session', async () =
   );
   const formData = new FormData();
   formData.set('electionId', electionId);
-  formData.set('closesAt', futureInstant().toISOString());
+  formData.set('closesAtLocal', '2099-08-30T23:59');
 
   await assert.rejects(() => openElectionAction({}, formData));
 

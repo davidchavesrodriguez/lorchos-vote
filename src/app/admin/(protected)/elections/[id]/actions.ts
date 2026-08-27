@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache';
 import { db } from '@/db';
 import { electionParticipants, elections } from '@/db/schema';
 import { requireAdminSession } from '@/lib/admin-session';
+import { parseClubDateTime } from '@/lib/club-date-time.server';
 import {
   transitionOpenElectionToClosed,
   transitionReadyElectionToOpen,
@@ -49,7 +50,11 @@ const VOTER_HAS_VOTED_ERROR =
 const OPENING_READY_REQUIRED_ERROR =
   'A votación só se pode abrir cando está preparada.';
 const INVALID_CLOSING_DATE_ERROR =
-  'A data límite recibida non é válida. Escolle de novo a data e a hora.';
+  'A data límite non ten un formato válido. Escolle de novo a data e a hora.';
+const INVALID_CLOSING_CIVIL_TIME_ERROR =
+  'A data ou a hora non existe, ou é ambigua por un cambio de hora en Galicia. Escolle outra.';
+const MISSING_CLOSING_DATE_ERROR =
+  'Indica unha data límite en hora de Galicia.';
 const CLOSING_DATE_NOT_FUTURE_ERROR =
   'A data límite debe ser posterior ao momento de apertura.';
 const OPENING_NO_VOTERS_ERROR =
@@ -455,15 +460,29 @@ export async function openElection(
   await requireAdminSession();
 
   const electionId = readString(formData, 'electionId');
-  const closesAt = readString(formData, 'closesAt');
+  const closesAtLocal = readString(formData, 'closesAtLocal');
 
   if (!UUID_PATTERN.test(electionId)) {
     return { formError: ELECTION_NOT_FOUND_ERROR };
   }
 
+  if (!closesAtLocal) {
+    return { formError: MISSING_CLOSING_DATE_ERROR };
+  }
+
+  const parsedClosesAt = parseClubDateTime(closesAtLocal);
+
+  if (parsedClosesAt.type === 'invalidFormat') {
+    return { formError: INVALID_CLOSING_DATE_ERROR };
+  }
+
+  if (parsedClosesAt.type === 'invalidCivilTime') {
+    return { formError: INVALID_CLOSING_CIVIL_TIME_ERROR };
+  }
+
   try {
     const result = await db.transaction((tx) =>
-      transitionReadyElectionToOpen(tx, electionId, closesAt),
+      transitionReadyElectionToOpen(tx, electionId, parsedClosesAt.instant),
     );
 
     if (result.type === 'missing') {

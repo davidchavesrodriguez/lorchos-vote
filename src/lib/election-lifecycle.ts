@@ -28,27 +28,10 @@ export type ElectionClosingResult =
   | { type: 'notOpen' }
   | { type: 'success'; closedAt: Date };
 
-const ABSOLUTE_ISO_PATTERN =
-  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
-
-function parseAbsoluteIsoInstant(value: string): Date | null {
-  if (!ABSOLUTE_ISO_PATTERN.test(value)) {
-    return null;
-  }
-
-  const instant = new Date(value);
-
-  if (Number.isNaN(instant.getTime()) || instant.toISOString() !== value) {
-    return null;
-  }
-
-  return instant;
-}
-
 export async function transitionReadyElectionToOpen(
   tx: DatabaseTransaction,
   electionId: string,
-  closesAtIso: string,
+  closesAt: Date,
 ): Promise<ElectionOpeningResult> {
   const [election] = await tx
     .select({ status: elections.status })
@@ -64,9 +47,7 @@ export async function transitionReadyElectionToOpen(
     return { type: 'notReady' };
   }
 
-  const closesAt = parseAbsoluteIsoInstant(closesAtIso);
-
-  if (!closesAt) {
+  if (!(closesAt instanceof Date) || Number.isNaN(closesAt.getTime())) {
     return { type: 'invalidClosesAt' };
   }
 
