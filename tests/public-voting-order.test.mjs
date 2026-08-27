@@ -5,6 +5,11 @@ import {
   filterEligibleCandidates,
   orderCandidatesForCredential,
 } from '../src/lib/public-voting-candidates.ts';
+import {
+  getSelectionRule,
+  getSelectionStatus,
+  isSelectionCountValid,
+} from '../src/app/v/selection-state.ts';
 
 const candidates = [
   { id: 'candidate-a', displayName: 'Candidata A' },
@@ -77,4 +82,24 @@ test('a voter who is not a candidate does not remove a candidate', () => {
   );
 
   assert.deepEqual(eligible, candidates);
+});
+
+test('selection copy follows each election min and max instead of a fixed count', () => {
+  assert.equal(getSelectionRule(2, 2), 'Escolle 2 persoas');
+  assert.equal(
+    getSelectionRule(1, 4),
+    'Escolle entre 1 e 4 persoas',
+  );
+  assert.equal(getSelectionStatus(1, 4), '1 de 4 seleccionada');
+  assert.equal(
+    getSelectionStatus(4, 4),
+    '4 de 4 seleccionadas · máximo acadado',
+  );
+});
+
+test('selection validity enables continuation only within election limits', () => {
+  assert.equal(isSelectionCountValid(0, 2, 4), false);
+  assert.equal(isSelectionCountValid(2, 2, 4), true);
+  assert.equal(isSelectionCountValid(4, 2, 4), true);
+  assert.equal(isSelectionCountValid(5, 2, 4), false);
 });

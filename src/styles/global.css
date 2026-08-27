@@ -6,6 +6,32 @@
 
 html {
   color-scheme: light;
+  scrollbar-color: var(--color-neutral-700) var(--color-neutral-100);
+  scrollbar-width: thin;
+}
+
+::selection {
+  color: var(--color-brand-dark-blue);
+  background: var(--color-brand-cyan);
+}
+
+::-webkit-scrollbar {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-neutral-100);
+}
+
+::-webkit-scrollbar-thumb {
+  border: 0.1875rem solid var(--color-neutral-100);
+  border-radius: 999px;
+  background: var(--color-neutral-700);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-brand-dark-blue);
 }
 
 body {

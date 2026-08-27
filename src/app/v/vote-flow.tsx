@@ -6,6 +6,11 @@ import { useRouter } from 'next/navigation';
 import { LocalDateTime } from './local-date-time';
 import styles from './vote.module.css';
 import { submitVote, type SubmitVoteResult } from './actions';
+import {
+  getSelectionRule,
+  getSelectionStatus,
+  isSelectionCountValid,
+} from './selection-state';
 
 type Candidate = {
   id: string;
@@ -56,9 +61,12 @@ export function VoteFlow({
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const stepHeadingRef = useRef<HTMLHeadingElement>(null);
-  const selectionIsValid =
-    selectedIds.length >= minSelections &&
-    selectedIds.length <= maxSelections;
+  const selectionIsValid = isSelectionCountValid(
+    selectedIds.length,
+    minSelections,
+    maxSelections,
+  );
+  const selectionIsComplete = selectedIds.length === maxSelections;
   const selectedCandidates = selectedIds
     .map((selectedId) =>
       candidates.find((candidate) => candidate.id === selectedId),
@@ -134,15 +142,17 @@ export function VoteFlow({
         <div className={styles.content}>
           <p className={styles.brand}>GB Lorchos · Votación</p>
           <section className={styles.success} aria-labelledby='success-title'>
+            <span className={styles.successMark} aria-hidden='true'>
+              ✓
+            </span>
             <h1
               id='success-title'
               className={styles.title}
               ref={stepHeadingRef}
               tabIndex={-1}
             >
-              Voto enviado
+              O teu voto foi rexistrado
             </h1>
-            <p>O teu voto foi rexistrado correctamente.</p>
             <p>A túa identidade non queda asociada á papeleta.</p>
             <p>Xa podes pechar esta páxina.</p>
           </section>
@@ -179,15 +189,8 @@ export function VoteFlow({
               continueToConfirmation();
             }}
           >
-            <fieldset>
-              <legend>
-                {minSelections === maxSelections
-                  ? `Escolle ${maxSelections} persoas`
-                  : `Escolle entre ${minSelections} e ${maxSelections} persoas`}
-              </legend>
-              <p className={styles.counter} aria-live='polite'>
-                {selectedIds.length} de {maxSelections} seleccionadas
-              </p>
+            <fieldset aria-describedby='selection-progress'>
+              <legend>{getSelectionRule(minSelections, maxSelections)}</legend>
               <ul className={styles.candidateList}>
                 {candidates.map((candidate) => {
                   const isSelected = selectedIds.includes(candidate.id);
@@ -205,7 +208,9 @@ export function VoteFlow({
                             updateSelection(candidate.id, event.target.checked)
                           }
                         />
-                        <span>{candidate.displayName}</span>
+                        <span className={styles.candidateName}>
+                          {candidate.displayName}
+                        </span>
                       </label>
                     </li>
                   );
@@ -219,13 +224,34 @@ export function VoteFlow({
               </p>
             ) : null}
 
-            <button
-              className={styles.primaryButton}
-              type='submit'
-              disabled={!selectionIsValid}
+            <div
+              className={`${styles.ballotBar} ${
+                selectionIsComplete ? styles.ballotBarComplete : ''
+              }`}
             >
-              Continuar
-            </button>
+              <div className={styles.ballotBarInner}>
+                <p
+                  id='selection-progress'
+                  className={styles.counter}
+                  aria-live='polite'
+                  aria-atomic='true'
+                >
+                  {selectionIsComplete ? (
+                    <span className={styles.counterCheck} aria-hidden='true'>
+                      ✓
+                    </span>
+                  ) : null}
+                  {getSelectionStatus(selectedIds.length, maxSelections)}
+                </p>
+                <button
+                  className={styles.primaryButton}
+                  type='submit'
+                  disabled={!selectionIsValid}
+                >
+                  Revisar e continuar
+                </button>
+              </div>
+            </div>
           </form>
         ) : (
           <section
